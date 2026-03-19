@@ -1,4 +1,4 @@
-export type RoomGameMode = "blackjack" | "poker" | "tienlen";
+export type RoomGameMode = "blackjack" | "poker" | "bigtwo";
 export type RoomStatus = "waiting" | "playing" | "finished";
 export type GameResult = "player-win" | "dealer-win" | "push" | "blackjack";
 

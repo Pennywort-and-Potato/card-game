@@ -1,7 +1,7 @@
 import type { CardData, Rank, Suit } from "../types";
 
-// Tien Len ranking: 3 is lowest, 2 is highest
-export const TL_RANK_ORDER: Rank[] = [
+// Big Two (Southern Rules) ranking: 3 is lowest, 2 is highest
+export const BT_RANK_ORDER: Rank[] = [
   "3",
   "4",
   "5",
@@ -16,9 +16,9 @@ export const TL_RANK_ORDER: Rank[] = [
   "A",
   "2",
 ];
-export const TL_SUIT_ORDER: Suit[] = ["spades", "clubs", "diamonds", "hearts"];
+export const BT_SUIT_ORDER: Suit[] = ["spades", "clubs", "diamonds", "hearts"];
 
-export type TienLenComboType =
+export type BigTwoComboType =
   | "single"
   | "pair"
   | "triple"
@@ -26,8 +26,8 @@ export type TienLenComboType =
   | "straight"
   | "double-sequence";
 
-export interface TienLenCombo {
-  type: TienLenComboType;
+export interface BigTwoCombo {
+  type: BigTwoComboType;
   cards: CardData[];
   highCardValue: number; // for comparison
   length: number;
@@ -36,12 +36,12 @@ export interface TienLenCombo {
 // Returns 0 (3♠ lowest) to 51 (2♥ highest)
 export function getCardValue(card: CardData): number {
   return (
-    TL_RANK_ORDER.indexOf(card.rank) * 4 + TL_SUIT_ORDER.indexOf(card.suit)
+    BT_RANK_ORDER.indexOf(card.rank) * 4 + BT_SUIT_ORDER.indexOf(card.suit)
   );
 }
 
 export function getRankIndex(rank: Rank): number {
-  return TL_RANK_ORDER.indexOf(rank);
+  return BT_RANK_ORDER.indexOf(rank);
 }
 
 export function sortHand(hand: CardData[]): CardData[] {
@@ -50,7 +50,7 @@ export function sortHand(hand: CardData[]): CardData[] {
 
 // ─── Combination Detection ───────────────────────────────────────────────────
 
-export function detectCombo(cards: CardData[]): TienLenCombo | null {
+export function detectCombo(cards: CardData[]): BigTwoCombo | null {
   if (cards.length === 0) return null;
   const sorted = [...cards].sort((a, b) => getCardValue(a) - getCardValue(b));
   const n = cards.length;
@@ -115,7 +115,7 @@ export function detectCombo(cards: CardData[]): TienLenCombo | null {
   return detectStraight(sorted);
 }
 
-function detectStraight(sorted: CardData[]): TienLenCombo | null {
+function detectStraight(sorted: CardData[]): BigTwoCombo | null {
   const n = sorted.length;
   if (n < 3) return null;
   if (sorted.some((c) => c.rank === "2")) return null;
@@ -136,7 +136,7 @@ function detectStraight(sorted: CardData[]): TienLenCombo | null {
   };
 }
 
-function detectDoubleSequence(sorted: CardData[]): TienLenCombo | null {
+function detectDoubleSequence(sorted: CardData[]): BigTwoCombo | null {
   const n = sorted.length;
   if (n < 6 || n % 2 !== 0) return null;
   if (sorted.some((c) => c.rank === "2")) return null;
@@ -167,14 +167,24 @@ function detectDoubleSequence(sorted: CardData[]): TienLenCombo | null {
   };
 }
 
-// ─── Beating Rules ───────────────────────────────────────────────────────────
+// ─── Beating Rules (Southern style Chặt rules) ───────────────────────────────
 
-export function canBeat(play: TienLenCombo, current: TienLenCombo): boolean {
+export function canBeat(play: BigTwoCombo, current: BigTwoCombo): boolean {
   // Beating a single 2
   if (current.type === "single" && current.cards[0].rank === "2") {
     if (play.type === "quad") return true;
-    if (play.type === "double-sequence" && play.length >= 6) return true; // 3+ pairs
+    if (play.type === "double-sequence" && play.length >= 6) return true; // 3+ pairs beats a single 2
     if (play.type === "single" && play.cards[0].rank === "2") {
+      return play.highCardValue > current.highCardValue;
+    }
+    return false;
+  }
+
+  // Beating a pair of 2s
+  if (current.type === "pair" && current.cards[0].rank === "2") {
+    if (play.type === "quad") return true;
+    if (play.type === "double-sequence" && play.length >= 8) return true; // 4+ pairs beats a pair of 2s
+    if (play.type === "pair" && play.cards[0].rank === "2") {
       return play.highCardValue > current.highCardValue;
     }
     return false;
@@ -182,8 +192,18 @@ export function canBeat(play: TienLenCombo, current: TienLenCombo): boolean {
 
   // Beating a quad
   if (current.type === "quad") {
-    if (play.type === "double-sequence" && play.length >= 8) return true; // 4+ pairs
+    if (play.type === "double-sequence" && play.length >= 8) return true; // 4+ pairs beats a quad
     if (play.type === "quad") return play.highCardValue > current.highCardValue;
+    return false;
+  }
+
+  // Beating a double-sequence
+  if (current.type === "double-sequence") {
+    if (play.type === "double-sequence") {
+      if (play.length > current.length) return true;
+      if (play.length === current.length) return play.highCardValue > current.highCardValue;
+    }
+    if (play.type === "quad" && current.length === 6) return true; // Quad beats 3 pairs
     return false;
   }
 
@@ -197,8 +217,8 @@ export function canBeat(play: TienLenCombo, current: TienLenCombo): boolean {
 
 export function findBeatingPlays(
   hand: CardData[],
-  current: TienLenCombo | null,
-): TienLenCombo[] {
+  current: BigTwoCombo | null,
+): BigTwoCombo[] {
   const all = findAllCombos(hand);
   if (current === null) return all;
   return all
@@ -206,8 +226,8 @@ export function findBeatingPlays(
     .sort((a, b) => a.highCardValue - b.highCardValue);
 }
 
-export function findAllCombos(hand: CardData[]): TienLenCombo[] {
-  const results: TienLenCombo[] = [];
+export function findAllCombos(hand: CardData[]): BigTwoCombo[] {
+  const results: BigTwoCombo[] = [];
 
   // Singles
   for (const card of hand) {
@@ -325,17 +345,17 @@ export function findAllCombos(hand: CardData[]): TienLenCombo[] {
 
 export function aiPickPlay(
   hand: CardData[],
-  current: TienLenCombo | null,
+  current: BigTwoCombo | null,
   isFirstMove = false,
-): TienLenCombo | null {
-  // First move of the game: must play 3♣
+): BigTwoCombo | null {
+  // First move of the game: must play ♠3 (Wiki: 3 Bích)
   if (isFirstMove && current === null) {
-    const threeClubs = hand.find((c) => c.rank === "3" && c.suit === "clubs");
-    if (threeClubs) {
+    const threeSpades = hand.find((c) => c.rank === "3" && c.suit === "spades");
+    if (threeSpades) {
       return {
         type: "single",
-        cards: [threeClubs],
-        highCardValue: getCardValue(threeClubs),
+        cards: [threeSpades],
+        highCardValue: getCardValue(threeSpades),
         length: 1,
       };
     }
@@ -360,7 +380,7 @@ export function aiPickPlay(
 
 // ─── Deck & Deal ─────────────────────────────────────────────────────────────
 
-export function createTienLenDeck(): CardData[] {
+export function createBigTwoDeck(): CardData[] {
   const ranks: Rank[] = [
     "2",
     "3",
@@ -399,18 +419,18 @@ export function dealCards(deck: CardData[], numPlayers: number): CardData[][] {
   return hands;
 }
 
-export function findThreeOfClubsOwner(hands: CardData[][]): number {
+export function findThreeOfSpadesOwner(hands: CardData[][]): number {
   for (let i = 0; i < hands.length; i++) {
-    if (hands[i].some((c) => c.rank === "3" && c.suit === "clubs")) return i;
+    if (hands[i].some((c) => c.rank === "3" && c.suit === "spades")) return i;
   }
   return 0;
 }
 
-export function isValidFirstPlay(combo: TienLenCombo): boolean {
-  return combo.cards.some((c) => c.rank === "3" && c.suit === "clubs");
+export function isValidFirstPlay(combo: BigTwoCombo): boolean {
+  return combo.cards.some((c) => c.rank === "3" && c.suit === "spades");
 }
 
-export function comboLabel(combo: TienLenCombo): string {
+export function comboLabel(combo: BigTwoCombo): string {
   const rankStr = combo.cards.map((c) => c.rank).join("-");
   switch (combo.type) {
     case "single":
