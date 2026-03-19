@@ -7,7 +7,7 @@
     "start": "npm run dev",
     "build": "npm run lint && tsc && vite build",
     "lint": "eslint .",
-    "dev": "vite"
+    "dev": "vite --host"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.99.2",

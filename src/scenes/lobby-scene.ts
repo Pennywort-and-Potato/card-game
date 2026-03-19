@@ -8,9 +8,9 @@ import type {
 } from "../lib/room-api";
 import {
   createRoom,
-  deleteRoom,
   getMyWaitingRoom,
   joinRoom,
+  leaveRoom,
   listPublicRooms,
   startHostHeartbeat,
   startRoom,
@@ -62,17 +62,11 @@ export const createLobbyScene = (
   overlay.innerHTML = `
     <div class="lobby-topbar">
       <button class="lobby-back-btn" id="lobby-back">← Menu</button>
-      <span class="lobby-topbar-title">MULTIPLAYER</span>
+      <span class="lobby-topbar-title">${MODE_LABELS[selectedMode].toUpperCase()}</span>
       <div style="width:80px"></div>
     </div>
 
     <div class="lobby-playing-as" id="lobby-playing-as">Playing as: ${playerName}</div>
-
-    <div class="lobby-tabs" id="lobby-tabs">
-      <button class="lobby-tab${selectedMode === "blackjack" ? " active" : ""}" data-mode="blackjack">Blackjack</button>
-      <button class="lobby-tab${selectedMode === "poker" ? " active" : ""}" data-mode="poker">Poker</button>
-      <button class="lobby-tab${selectedMode === "tienlen" ? " active" : ""}" data-mode="tienlen">Tiến Lên</button>
-    </div>
 
     <div class="lobby-body">
       <!-- Left: Open rooms -->
@@ -139,13 +133,13 @@ export const createLobbyScene = (
         <div class="lobby-room-panel-players" id="lobby-room-players"></div>
         <div class="lobby-room-panel-waiting" id="lobby-room-waiting"></div>
       </div>
+      <button class="lobby-leave-btn" id="lobby-leave-btn">Leave Room</button>
       <button class="lobby-start-btn" id="lobby-start-btn" style="display:none" disabled>▶ Start Game</button>
     </div>
   `;
   document.getElementById("pixi-container")!.appendChild(overlay);
 
   // ── DOM refs ────────────────────────────────────────────────────────────────
-  const tabsEl = overlay.querySelector<HTMLDivElement>("#lobby-tabs")!;
   const roomsList = overlay.querySelector<HTMLDivElement>("#lobby-rooms-list")!;
   const refreshBtn =
     overlay.querySelector<HTMLButtonElement>("#lobby-refresh")!;
@@ -181,26 +175,14 @@ export const createLobbyScene = (
   )!;
   const startGameBtn =
     overlay.querySelector<HTMLButtonElement>("#lobby-start-btn")!;
+  const leaveRoomBtn =
+    overlay.querySelector<HTMLButtonElement>("#lobby-leave-btn")!;
 
   // ── Fix B helper: prefer user_id, fall back to player_name ─────────────────
   const findMe = (players: RoomPlayer[]) =>
     players.find((p) =>
       p.user_id ? p.user_id === userId : p.player_name === playerName,
     );
-
-  // ── Tab switching ───────────────────────────────────────────────────────────
-  tabsEl.addEventListener("click", (e) => {
-    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>(
-      "[data-mode]",
-    );
-    if (!btn) return;
-    selectedMode = btn.dataset.mode as RoomGameMode;
-    tabsEl
-      .querySelectorAll(".lobby-tab")
-      .forEach((t) => t.classList.remove("active"));
-    btn.classList.add("active");
-    void refreshPublicRooms();
-  });
 
   // ── Render room list ────────────────────────────────────────────────────────
   const renderRoomList = () => {
@@ -303,6 +285,7 @@ export const createLobbyScene = (
         const isHost = findMe(latestPlayers)?.is_host ?? false;
         manager.goto(gameMode === "tienlen" ? "tienlen" : gameMode, {
           playerName,
+          userId,
           balance: STARTING_BALANCE,
           roomId: room.id,
           isHost,
@@ -413,6 +396,34 @@ export const createLobbyScene = (
     }
   });
 
+  leaveRoomBtn.addEventListener("click", async () => {
+    if (!currentRoom) return;
+    leaveRoomBtn.disabled = true;
+    try {
+      await leaveRoom(currentRoom.id, userId);
+
+      // Reset local state
+      currentRoom = null;
+      unsubscribeRoom?.();
+      unsubscribeRoom = null;
+      stopHeartbeat?.();
+      stopHeartbeat = null;
+
+      // Reset UI
+      roomPanel.classList.remove("visible");
+      createPublicBtn.disabled = false;
+      createPrivateBtn.disabled = false;
+      joinCodeBtn.disabled = joinCode.length !== 6;
+      codeLabelEl.style.display = "none";
+      codeDisplayEl.textContent = "";
+
+      void refreshPublicRooms();
+    } catch (err) {
+      console.error("leaveRoom error:", err);
+      leaveRoomBtn.disabled = false;
+    }
+  });
+
   // ── Initial data load ────────────────────────────────────────────────────────
   void refreshPublicRooms();
   unsubscribePublic = subscribeToPublicRooms(() => void refreshPublicRooms());
@@ -443,7 +454,7 @@ export const createLobbyScene = (
       currentRoom.status === "waiting" &&
       !gameStarting
     ) {
-      void deleteRoom(currentRoom.id);
+      void leaveRoom(currentRoom.id, userId);
     }
     unsubscribeRoom?.();
     unsubscribePublic?.();

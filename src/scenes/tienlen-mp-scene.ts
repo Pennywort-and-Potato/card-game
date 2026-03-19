@@ -29,6 +29,7 @@ import {
 } from "../lib/game-state-api";
 import {
   getRoomPlayers,
+  leaveRoom,
   startHostHeartbeat,
   subscribeToRoomDeletion,
 } from "../lib/room-api";
@@ -42,6 +43,7 @@ export const createTienLenMpScene = (
 
   const playerName = (params.playerName as string) ?? "Player";
   const roomId = params.roomId as string;
+  const userId = params.userId as string;
   const isHost = (params.isHost as boolean) ?? false;
 
   let gs: TienLenMpState | null = null;
@@ -63,7 +65,7 @@ export const createTienLenMpScene = (
   hud.innerHTML = `
     <div class="hud-topbar">
       <button class="hud-back-btn" id="tl-mp-back">← Menu</button>
-      <span class="hud-title">TIẾN LÊN — MULTIPLAYER</span>
+      <span class="hud-title">TIẾN LÊN</span>
       <div style="width:90px"></div>
     </div>
     <div class="hud-status" id="tl-mp-status">Connecting…</div>
@@ -90,7 +92,10 @@ export const createTienLenMpScene = (
 
   hud
     .querySelector("#tl-mp-back")!
-    .addEventListener("click", () => manager.goto("menu"));
+    .addEventListener("click", async () => {
+      await leaveRoom(roomId, userId);
+      manager.goto("menu");
+    });
 
   // ── Render ───────────────────────────────────────────────────────────────
   const renderHand = (state: TienLenMpState) => {
