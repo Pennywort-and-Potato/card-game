@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bun run:*)",
+      "Bash(npx tsc:*)",
+      "Bash(./node_modules/.bin/tsc --noEmit)",
+      "Bash(bunx eslint:*)",
+      "Bash(supabase db:*)",
+      "Bash(bun add:*)",
+      "Bash(wc -l /d/sourcecode/card-game/src/**/*.ts)"
+    ]
+  }
+}
