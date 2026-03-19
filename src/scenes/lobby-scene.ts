@@ -24,10 +24,10 @@ import {
   STARTING_BALANCE,
 } from "../utils/constants";
 
-const MODE_LABELS: Record<RoomGameMode, string> = {
+const GAME_MODE_LABELS: Record<RoomGameMode, string> = {
   blackjack: "Blackjack",
   poker: "Poker",
-  tienlen: "Tiến Lên",
+  bigtwo: "Big Two",
 };
 
 export const createLobbyScene = (
@@ -62,7 +62,7 @@ export const createLobbyScene = (
   overlay.innerHTML = `
     <div class="lobby-topbar">
       <button class="lobby-back-btn" id="lobby-back">← Menu</button>
-      <span class="lobby-topbar-title">${MODE_LABELS[selectedMode].toUpperCase()}</span>
+      <span class="lobby-topbar-title">${GAME_MODE_LABELS[selectedMode].toUpperCase()}</span>
       <div style="width:80px"></div>
     </div>
 
@@ -199,7 +199,7 @@ export const createLobbyScene = (
         return `
           <div class="lobby-room-row" data-code="${room.code}">
             <div class="lobby-room-info">
-              <div class="lobby-room-mode">${MODE_LABELS[room.game_mode]}</div>
+              <div class="lobby-room-mode">${GAME_MODE_LABELS[room.game_mode]}</div>
               <div class="lobby-room-host">Host: ${room.host_name}</div>
               <div class="lobby-room-count">${room.players.length}/${room.max_players} players</div>
             </div>
@@ -222,8 +222,25 @@ export const createLobbyScene = (
         });
       });
   };
+  const renderSkeletons = () => {
+    roomsList.innerHTML = [1, 2, 3]
+      .map(
+        () => `
+          <div class="lobby-room-row skeleton">
+            <div class="lobby-room-info">
+              <div class="skeleton-bar" style="width: 60px; height: 12px; margin-bottom: 8px"></div>
+              <div class="skeleton-bar" style="width: 120px; height: 14px; margin-bottom: 6px"></div>
+              <div class="skeleton-bar" style="width: 80px; height: 11px"></div>
+            </div>
+            <div class="lobby-join-btn skeleton" style="width: 64px; height: 30px"></div>
+          </div>
+        `,
+      )
+      .join("");
+  };
 
   const refreshPublicRooms = async () => {
+    renderSkeletons();
     publicRooms = await listPublicRooms();
     renderRoomList();
   };
@@ -232,7 +249,7 @@ export const createLobbyScene = (
   const updatePlayerList = (players: RoomPlayer[]) => {
     latestPlayers = players;
     if (!currentRoom) return;
-    const mode = MODE_LABELS[currentRoom.game_mode];
+    const mode = GAME_MODE_LABELS[currentRoom.game_mode];
     const privTag = currentRoom.is_private ? " 🔒 Private" : " 🌐 Public";
     roomTitleEl.textContent = `${mode}${privTag}  ·  Room: ${currentRoom.code}  (${players.length}/${currentRoom.max_players})`;
     roomPlayersEl.textContent = players
@@ -283,7 +300,7 @@ export const createLobbyScene = (
         if (currentRoom) currentRoom = { ...currentRoom, status: "playing" };
         gameStarting = true;
         const isHost = findMe(latestPlayers)?.is_host ?? false;
-        manager.goto(gameMode === "tienlen" ? "tienlen" : gameMode, {
+        manager.goto(gameMode === "bigtwo" ? "bigtwo" : gameMode, {
           playerName,
           userId,
           balance: STARTING_BALANCE,
@@ -346,8 +363,8 @@ export const createLobbyScene = (
 
   soloBtn.addEventListener("click", () => {
     const sceneName =
-      selectedMode === "tienlen"
-        ? "tienlen"
+      selectedMode === "bigtwo"
+        ? "bigtwo"
         : (selectedMode as "blackjack" | "poker");
     manager.goto(sceneName, { playerName, balance: STARTING_BALANCE });
   });
@@ -382,7 +399,7 @@ export const createLobbyScene = (
       currentRoom = { ...currentRoom, status: "playing" };
       gameStarting = true;
       manager.goto(
-        currentRoom.game_mode === "tienlen" ? "tienlen" : currentRoom.game_mode,
+        currentRoom.game_mode === "bigtwo" ? "bigtwo" : currentRoom.game_mode,
         {
           playerName,
           balance: STARTING_BALANCE,

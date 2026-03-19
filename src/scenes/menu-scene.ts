@@ -41,10 +41,10 @@ export const createMenuScene = (
         <div class="menu-game-card-desc">Texas Hold'em vs AI</div>
         <div class="menu-game-card-play">▶ PLAY</div>
       </div>
-      <div class="menu-game-card" id="card-tienlen" style="background:#201018;">
+      <div class="menu-game-card" id="card-bigtwo" style="background:#201018;">
         <span class="menu-game-card-icon">🀄</span>
-        <div class="menu-game-card-name">Tiến Lên</div>
-        <div class="menu-game-card-desc">Vietnamese climbing</div>
+        <div class="menu-game-card-name">Big Two</div>
+        <div class="menu-game-card-desc">Southern Vietnamese rules</div>
         <div class="menu-game-card-play">▶ PLAY</div>
       </div>
     </div>
@@ -94,8 +94,8 @@ export const createMenuScene = (
   overlay.querySelector("#card-poker")!.addEventListener("click", () => {
     manager.goto("lobby", { playerName: getPlayerName(), gameMode: "poker" });
   });
-  overlay.querySelector("#card-tienlen")!.addEventListener("click", () => {
-    manager.goto("lobby", { playerName: getPlayerName(), gameMode: "tienlen" });
+  overlay.querySelector("#card-bigtwo")!.addEventListener("click", () => {
+    manager.goto("lobby", { playerName: getPlayerName(), gameMode: "bigtwo" });
   });
 
   // ── Leaderboard ─────────────────────────────────────────────────────────────

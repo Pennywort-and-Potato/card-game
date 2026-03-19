@@ -1,6 +1,6 @@
 import { supabase } from "./supabase";
 import type { CardData, GameResult } from "../types";
-import type { TienLenCombo } from "../systems/tienlen-logic";
+import type { BigTwoCombo } from "../systems/big-two-logic";
 
 // ── Blackjack MP state ───────────────────────────────────────────────────────
 export interface BjMpPlayer {
@@ -41,26 +41,27 @@ export interface PokerMpState {
   active_player: string | null;
 }
 
-// ── Tiến Lên MP state ────────────────────────────────────────────────────────
-export interface TLMpPlayer {
+// ── Big Two MP state ────────────────────────────────────────────────────────
+export interface BigTwoMpPlayer {
   name: string;
   hand: CardData[];
   finished: boolean;
   finish_rank: number | null;
 }
 
-export interface TienLenMpState {
-  phase: "playing" | "game-over";
-  players: TLMpPlayer[];
+export interface BigTwoMpState {
+  phase: "lobby" | "playing" | "game-over";
+  players: BigTwoMpPlayer[];
+  ready_players: string[];
   current_player: string;
-  last_combo: TienLenCombo | null;
+  last_combo: BigTwoCombo | null;
   last_played_by: string | null;
   passed: string[];
   is_first_move: boolean;
   finish_order: string[];
 }
 
-export type AnyMpState = BlackjackMpState | PokerMpState | TienLenMpState;
+export type AnyMpState = BlackjackMpState | PokerMpState | BigTwoMpState;
 
 export interface PlayerAction {
   id: string;

@@ -6,10 +6,10 @@ import { createMenuScene } from "./scenes/menu-scene";
 import { createLobbyScene } from "./scenes/lobby-scene";
 import { createGameScene } from "./scenes/game-scene";
 import { createPokerScene } from "./scenes/poker-scene";
-import { createTienLenScene } from "./scenes/tienlen-scene";
+import { createBigTwoScene } from "./scenes/big-two-scene";
+import { createBigTwoMpScene } from "./scenes/big-two-mp-scene";
 import { createBlackjackMpScene } from "./scenes/blackjack-mp-scene";
 import { createPokerMpScene } from "./scenes/poker-mp-scene";
-import { createTienLenMpScene } from "./scenes/tienlen-mp-scene";
 import { SCREEN_HEIGHT, SCREEN_WIDTH } from "./utils/constants";
 import { setViewport } from "./utils/viewport";
 import { getCurrentUser } from "./lib/auth";
@@ -32,16 +32,24 @@ const bootstrap = async () => {
   app.stage.addChild(viewport);
 
   const resize = () => {
-    const scale = Math.min(
-      app.screen.width / SCREEN_WIDTH,
-      app.screen.height / SCREEN_HEIGHT,
-    );
-    const offX = (app.screen.width - SCREEN_WIDTH * scale) / 2;
-    const offY = (app.screen.height - SCREEN_HEIGHT * scale) / 2;
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    const scale = Math.min(width / SCREEN_WIDTH, height / SCREEN_HEIGHT);
+    const offX = (width - SCREEN_WIDTH * scale) / 2;
+    const offY = (height - SCREEN_HEIGHT * scale) / 2;
+
     viewport.scale.set(scale);
     viewport.position.set(offX, offY);
     setViewport(scale, offX, offY);
+
+    // Sync CSS custom properties so HTML overlays can match the letterbox rect
+    const root = document.documentElement.style;
+    root.setProperty("--vp-left", `${offX}px`);
+    root.setProperty("--vp-top", `${offY}px`);
+    root.setProperty("--vp-width", `${SCREEN_WIDTH * scale}px`);
+    root.setProperty("--vp-height", `${SCREEN_HEIGHT * scale}px`);
   };
+
   window.addEventListener("resize", resize);
   resize();
 
@@ -57,8 +65,8 @@ const bootstrap = async () => {
     .register("poker", (m, p) =>
       p.roomId ? createPokerMpScene(m, p) : createPokerScene(m, p),
     )
-    .register("tienlen", (m, p) =>
-      p.roomId ? createTienLenMpScene(m, p) : createTienLenScene(m, p),
+    .register("bigtwo", (m, p) =>
+      p.roomId ? createBigTwoMpScene(m, p) : createBigTwoScene(m, p),
     );
 
   // Route to auth if no active session, otherwise go straight to menu

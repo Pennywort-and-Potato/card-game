@@ -1,6 +1,6 @@
 import { supabase } from "./supabase";
 
-export type RoomGameMode = "blackjack" | "poker" | "tienlen";
+export type RoomGameMode = "blackjack" | "poker" | "bigtwo";
 export type RoomStatus = "waiting" | "playing" | "finished";
 
 export interface Room {
@@ -32,8 +32,10 @@ export interface RoomWithPlayers extends Room {
 const generateCode = (): string =>
   Math.random().toString(36).substring(2, 8).toUpperCase();
 
-const maxPlayersForMode = (gameMode: RoomGameMode): number =>
-  gameMode === "tienlen" ? 4 : 6;
+const maxPlayersForMode = (gameMode: RoomGameMode): number => {
+  if (gameMode === "bigtwo") return 4;
+  return 6;
+};
 
 export const createRoom = async (
   gameMode: RoomGameMode,

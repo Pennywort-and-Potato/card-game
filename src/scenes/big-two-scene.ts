@@ -6,20 +6,20 @@ import { createTableBackground } from "../utils/mock-graphics";
 import { SCREEN_HEIGHT, SCREEN_WIDTH } from "../utils/constants";
 import type { CardData, SceneParams } from "../types";
 import {
-  type TienLenCombo,
+  type BigTwoCombo,
   aiPickPlay,
   canBeat,
   comboLabel,
-  createTienLenDeck,
+  createBigTwoDeck,
   dealCards,
   detectCombo,
-  findThreeOfClubsOwner,
+  findThreeOfSpadesOwner,
   isValidFirstPlay,
   sortHand,
-} from "../systems/tienlen-logic";
+} from "../systems/big-two-logic";
 
 // Player seat layout: 0=human(bottom) 1=left 2=top 3=right
-interface TLPlayer {
+interface BTPlayer {
   name: string;
   hand: CardData[];
   isHuman: boolean;
@@ -39,16 +39,16 @@ const NAME_OFFSETS = [
   { dx: 0, dy: 130 }, // right: label below stack
 ];
 
-export const createTienLenScene = (
+export const createBigTwoScene = (
   manager: SceneManager,
   params: SceneParams = {},
 ): SceneContainer => {
   void params;
   const root = new Container() as SceneContainer;
-  root.label = "tienlen-scene";
+  root.label = "big-two-scene";
 
   // ── State ──────────────────────────────────────────────────────────────────
-  const players: TLPlayer[] = [
+  const players: BTPlayer[] = [
     { name: "You", hand: [], isHuman: true },
     { name: "West", hand: [], isHuman: false },
     { name: "North", hand: [], isHuman: false },
@@ -56,7 +56,7 @@ export const createTienLenScene = (
   ];
 
   let currentPlayerIdx = 0;
-  let currentCombo: TienLenCombo | null = null;
+  let currentCombo: BigTwoCombo | null = null;
   let lastPlayedBy = 0;
   const passedInRound = new Set<number>();
   let isFirstMove = true;
@@ -77,7 +77,7 @@ export const createTienLenScene = (
   root.addChild(createTableBackground());
 
   const titleText = new Text({
-    text: "TIẾN LÊN MIỀN NAM",
+    text: "BIG TWO (SOUTH)",
     style: new TextStyle({
       fontSize: 22,
       fill: "#d4af37",
@@ -134,7 +134,7 @@ export const createTienLenScene = (
   hud.innerHTML = `
     <div class="hud-topbar">
       <button class="hud-back-btn" id="tl-back">← Menu</button>
-      <span class="hud-title">TIẾN LÊN MIỀN NAM</span>
+      <span class="hud-title">BIG TWO</span>
       <div style="width:90px"></div>
     </div>
     <div class="hud-status" id="tl-status"></div>
@@ -329,7 +329,7 @@ export const createTienLenScene = (
       if (currentPlayerIdx === 0 && !gameOver) {
         const hint = new Text({
           text: isFirstMove
-            ? "First move must include 3♣"
+            ? "First move must include ♠3"
             : "Select cards, then Play",
           style: new TextStyle({ fontSize: 12, fill: "#88aa88" }),
         });
@@ -378,12 +378,12 @@ export const createTienLenScene = (
   // ── Game flow ──────────────────────────────────────────────────────────────
 
   function dealAndStart() {
-    const deck = createTienLenDeck();
+    const deck = createBigTwoDeck();
     const hands = dealCards(deck, 4);
     for (let i = 0; i < 4; i++) {
       players[i].hand = sortHand(hands[i]);
     }
-    currentPlayerIdx = findThreeOfClubsOwner(hands);
+    currentPlayerIdx = findThreeOfSpadesOwner(hands);
     lastPlayedBy = currentPlayerIdx;
     isFirstMove = true;
     currentCombo = null;
@@ -391,9 +391,9 @@ export const createTienLenScene = (
     selectedIndices.clear();
     finishOrder.length = 0;
     gameOver = false;
-
+  
     renderAll();
-    msgText.text = `${players[currentPlayerIdx].name} starts (has 3♣)`;
+    msgText.text = `${players[currentPlayerIdx].name} starts (has ♠3)`;
     beginTurn();
   }
 
@@ -419,7 +419,7 @@ export const createTienLenScene = (
     }
   }
 
-  function executePlay(combo: TienLenCombo) {
+  function executePlay(combo: BigTwoCombo) {
     const pIdx = currentPlayerIdx;
     const player = players[pIdx];
 
@@ -658,7 +658,7 @@ export const createTienLenScene = (
     }
 
     if (isFirstMove && !isValidFirstPlay(combo)) {
-      hintEl.textContent = "First play must include the 3♣!";
+      hintEl.textContent = "First play must include the ♠3!";
       return;
     }
 

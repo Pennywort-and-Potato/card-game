@@ -1,4 +1,60 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+/* ── Pixel-art Big Two MP styles ─────────────────────────────────────────── */
+.bt-pixel-title {
+  font-family: 'Press Start 2P', monospace !important;
+  font-size: 14px !important;
+  letter-spacing: 0.18em !important;
+}
+
+.bt-ready-btn {
+  min-width: 150px;
+  height: 52px;
+  padding: 0 24px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  background: #16653a;
+  color: #4ade80;
+  border: 2px solid #22c55e;
+  border-radius: 0;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.bt-ready-btn:hover:not(:disabled) {
+  background: #1a7a44;
+  color: #86efac;
+  border-color: #4ade80;
+}
+.bt-ready-btn:disabled,
+.bt-ready-done {
+  background: #1c1c2e;
+  color: #4b5563;
+  border-color: #374151;
+  cursor: not-allowed;
+  opacity: 0.85;
+}
+
+
+@keyframes skeleton-pulse {
+  0% { opacity: 0.6; }
+  50% { opacity: 1; }
+  100% { opacity: 0.6; }
+}
+
+.skeleton-bar {
+  background: var(--border-hi);
+  border-radius: 4px;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+  opacity: 0.4;
+}
+
+.lobby-room-row.skeleton {
+  pointer-events: none;
+  border-color: var(--border);
+  opacity: 0.7;
+}
 
 /* ── Design tokens ─────────────────────────────────────────────────────────── */
 :root {
@@ -61,7 +117,10 @@ html, body {
 /* ── Menu overlay ────────────────────────────────────────────────────────────── */
 .menu-overlay {
   position: fixed;
-  inset: 0;
+  left:   var(--vp-left,   0px);
+  top:    var(--vp-top,    0px);
+  width:  var(--vp-width,  100%);
+  height: var(--vp-height, 100%);
   z-index: 100;
   display: flex;
   flex-direction: column;
@@ -237,7 +296,10 @@ html, body {
 /* ── Lobby overlay ───────────────────────────────────────────────────────────── */
 .lobby-overlay {
   position: fixed;
-  inset: 0;
+  left:   var(--vp-left,   0px);
+  top:    var(--vp-top,    0px);
+  width:  var(--vp-width,  100%);
+  height: var(--vp-height, 100%);
   z-index: 100;
   background: var(--bg);
   display: flex;
@@ -382,6 +444,7 @@ html, body {
 }
 .lobby-join-btn:hover { background: var(--gold-glow); }
 .lobby-join-btn:disabled { background: #2a2a44; color: var(--text-muted); cursor: not-allowed; }
+.lobby-join-btn.skeleton { background: var(--border-hi); opacity: 0.4; animation: skeleton-pulse 1.5s ease-in-out infinite; pointer-events: none; }
 .lobby-empty-msg {
   padding: 40px 16px;
   text-align: center;
@@ -570,12 +633,16 @@ html, body {
 
 /* ── Game HUD overlay ───────────────────────────────────────────────────────── */
 .game-hud {
-  position: absolute;
-  inset: 0;
+  position: fixed;
+  left:   var(--vp-left,   0px);
+  top:    var(--vp-top,    0px);
+  width:  var(--vp-width,  100%);
+  height: var(--vp-height, 100%);
   z-index: 20;
   pointer-events: none;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .hud-topbar {
@@ -696,7 +763,10 @@ html, body {
 /* ── Auth overlay ────────────────────────────────────────────────────────────── */
 .auth-overlay {
   position: fixed;
-  inset: 0;
+  left:   var(--vp-left,   0px);
+  top:    var(--vp-top,    0px);
+  width:  var(--vp-width,  100%);
+  height: var(--vp-height, 100%);
   z-index: 100;
   display: flex;
   align-items: center;

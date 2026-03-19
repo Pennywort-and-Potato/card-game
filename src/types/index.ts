@@ -55,8 +55,8 @@ export interface PokerHandRank {
   tiebreakers: number[];
 }
 
-// ---- Tien Len types ----
-export type TienLenGameState = "playing" | "round-reset" | "game-over";
+// ---- Big Two types ----
+export type BigTwoGameState = "playing" | "round-reset" | "game-over";
 
 // ---- Scene types ----
 export type SceneName =
@@ -65,5 +65,6 @@ export type SceneName =
   | "lobby"
   | "blackjack"
   | "poker"
-  | "tienlen";
+  | "bigtwo";
+export type RoomGameMode = "blackjack" | "poker" | "bigtwo";
 export type SceneParams = Record<string, unknown>;
