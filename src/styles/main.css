@@ -732,43 +732,34 @@ body {
   cursor: not-allowed;
 }
 
-/* ── Lobby room panel (bottom) ────────────────────────────────────────────── */
-.lobby-room-panel {
-  flex-shrink: 0;
-  background: var(--panel);
-  border-top: 1px solid var(--border-hi);
-  padding: 12px 20px;
-  display: none;
-}
-
-.lobby-room-panel.visible {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.lobby-room-panel-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.lobby-room-panel-title {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--gold);
-}
-
+/* ── Lobby room info (right panel, shown when in a room) ─────────────────── */
 .lobby-room-panel-players {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.lobby-ri-player {
   font-size: 13px;
   color: var(--text);
-  margin-top: 4px;
+  padding: 6px 10px;
+  background: var(--panel-2);
+  border-radius: 6px;
+  border: 1px solid var(--border-hi);
 }
 
 .lobby-room-panel-waiting {
   font-size: 12px;
   color: var(--text-label);
-  margin-top: 2px;
+  margin-top: 10px;
+}
+
+.lobby-room-info-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+  flex-wrap: wrap;
 }
 
 .lobby-start-btn {

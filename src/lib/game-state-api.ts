@@ -4,6 +4,7 @@ import type { BigTwoCombo } from "../systems/big-two-logic";
 
 // ── Blackjack MP state ───────────────────────────────────────────────────────
 export interface BjMpPlayer {
+  id: string;
   name: string;
   hand: CardData[];
   bet: number;
@@ -22,6 +23,7 @@ export interface BlackjackMpState {
 
 // ── Poker MP state ───────────────────────────────────────────────────────────
 export interface PokerMpPlayer {
+  id: string;
   name: string;
   hand: CardData[];
   balance: number;
@@ -43,6 +45,7 @@ export interface PokerMpState {
 
 // ── Big Two MP state ────────────────────────────────────────────────────────
 export interface BigTwoMpPlayer {
+  id: string;
   name: string;
   hand: CardData[];
   finished: boolean;
@@ -59,6 +62,7 @@ export interface BigTwoMpState {
   passed: string[];
   is_first_move: boolean;
   finish_order: string[];
+  start_card: CardData | null;
 }
 
 export type AnyMpState = BlackjackMpState | PokerMpState | BigTwoMpState;

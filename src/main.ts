@@ -1,5 +1,5 @@
 import "./styles/main.css";
-import { Application, Container } from "pixi.js";
+import { Application, Assets, Container } from "pixi.js";
 import { SceneManager } from "./systems/scene-manager";
 import { createAuthScene } from "./scenes/auth-scene";
 import { createMenuScene } from "./scenes/menu-scene";
@@ -53,6 +53,15 @@ const bootstrap = async () => {
   window.addEventListener("resize", resize);
   resize();
 
+  // Preload card assets
+  const suits = ["H", "D", "C", "S"];
+  const ranks = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+  const cardPaths = suits.flatMap((s) => ranks.map((r) => `assets/cards/${r}-${s}.png`));
+  const backPaths = ["back-blue", "back-red", "back-green", "back-black", "back-yellow"].map(
+    (b) => `assets/cards/${b}.png`,
+  );
+  await Assets.load([...cardPaths, ...backPaths]);
+
   const manager = new SceneManager(viewport);
   manager
     .register("auth", (m) => createAuthScene(m))
@@ -72,7 +81,7 @@ const bootstrap = async () => {
   // Route to auth if no active session, otherwise go straight to menu
   const user = await getCurrentUser();
   if (user) {
-    manager.goto("menu", { playerName: user.displayName });
+    manager.goto("menu", { playerName: user.displayName, userId: user.id });
   } else {
     manager.goto("auth");
   }

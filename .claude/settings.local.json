@@ -7,7 +7,9 @@
       "Bash(bunx eslint:*)",
       "Bash(supabase db:*)",
       "Bash(bun add:*)",
-      "Bash(wc -l /d/sourcecode/card-game/src/**/*.ts)"
+      "Bash(wc -l /d/sourcecode/card-game/src/**/*.ts)",
+      "Bash(bunx tsc:*)",
+      "Bash(grep -v \"^\\\\s*$\")"
     ]
   }
 }

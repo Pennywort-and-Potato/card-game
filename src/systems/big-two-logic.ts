@@ -347,15 +347,16 @@ export function aiPickPlay(
   hand: CardData[],
   current: BigTwoCombo | null,
   isFirstMove = false,
+  startCard?: CardData,
 ): BigTwoCombo | null {
-  // First move of the game: must play ♠3 (Wiki: 3 Bích)
-  if (isFirstMove && current === null) {
-    const threeSpades = hand.find((c) => c.rank === "3" && c.suit === "spades");
-    if (threeSpades) {
+  // First move of the game: must play the starting card
+  if (isFirstMove && current === null && startCard) {
+    const mustPlay = hand.find((c) => c.rank === startCard.rank && c.suit === startCard.suit);
+    if (mustPlay) {
       return {
         type: "single",
-        cards: [threeSpades],
-        highCardValue: getCardValue(threeSpades),
+        cards: [mustPlay],
+        highCardValue: getCardValue(mustPlay),
         length: 1,
       };
     }
@@ -419,15 +420,31 @@ export function dealCards(deck: CardData[], numPlayers: number): CardData[][] {
   return hands;
 }
 
+/** Returns 3♠ if any player holds it, otherwise the lowest-valued card in all hands. */
+export function findStartingCard(hands: CardData[][]): CardData {
+  for (const hand of hands) {
+    const threeSpades = hand.find((c) => c.rank === "3" && c.suit === "spades");
+    if (threeSpades) return threeSpades;
+  }
+  let lowest: CardData | null = null;
+  for (const hand of hands) {
+    for (const card of hand) {
+      if (!lowest || getCardValue(card) < getCardValue(lowest)) lowest = card;
+    }
+  }
+  return lowest!;
+}
+
 export function findThreeOfSpadesOwner(hands: CardData[][]): number {
+  const startCard = findStartingCard(hands);
   for (let i = 0; i < hands.length; i++) {
-    if (hands[i].some((c) => c.rank === "3" && c.suit === "spades")) return i;
+    if (hands[i].some((c) => c.rank === startCard.rank && c.suit === startCard.suit)) return i;
   }
   return 0;
 }
 
-export function isValidFirstPlay(combo: BigTwoCombo): boolean {
-  return combo.cards.some((c) => c.rank === "3" && c.suit === "spades");
+export function isValidFirstPlay(combo: BigTwoCombo, startCard: CardData): boolean {
+  return combo.cards.some((c) => c.rank === startCard.rank && c.suit === startCard.suit);
 }
 
 export function comboLabel(combo: BigTwoCombo): string {

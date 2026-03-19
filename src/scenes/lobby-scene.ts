@@ -80,8 +80,9 @@ export const createLobbyScene = (
         </div>
       </div>
 
-      <!-- Right: Actions -->
+      <!-- Right: Actions (default) / Room Info (when in room) -->
       <div class="lobby-panel">
+        <!-- Default actions view -->
         <div class="lobby-right-content" id="lobby-right-content">
           <!-- Solo play -->
           <div>
@@ -123,18 +124,18 @@ export const createLobbyScene = (
             <div class="lobby-status-text" id="lobby-join-status"></div>
           </div>
         </div>
-      </div>
-    </div>
 
-    <!-- Bottom: current room panel -->
-    <div class="lobby-room-panel" id="lobby-room-panel">
-      <div class="lobby-room-panel-info">
-        <div class="lobby-room-panel-title" id="lobby-room-title"></div>
-        <div class="lobby-room-panel-players" id="lobby-room-players"></div>
-        <div class="lobby-room-panel-waiting" id="lobby-room-waiting"></div>
+        <!-- Room info view (shown when in a room) -->
+        <div class="lobby-right-content" id="lobby-room-info" style="display:none">
+          <div class="lobby-section-label" id="lobby-room-title">Room</div>
+          <div class="lobby-room-panel-players" id="lobby-room-players"></div>
+          <div class="lobby-room-panel-waiting" id="lobby-room-waiting"></div>
+          <div class="lobby-room-info-actions">
+            <button class="lobby-leave-btn" id="lobby-leave-btn">Leave Room</button>
+            <button class="lobby-start-btn" id="lobby-start-btn" style="display:none" disabled>▶ Start Game</button>
+          </div>
+        </div>
       </div>
-      <button class="lobby-leave-btn" id="lobby-leave-btn">Leave Room</button>
-      <button class="lobby-start-btn" id="lobby-start-btn" style="display:none" disabled>▶ Start Game</button>
     </div>
   `;
   document.getElementById("pixi-container")!.appendChild(overlay);
@@ -164,7 +165,8 @@ export const createLobbyScene = (
     overlay.querySelector<HTMLButtonElement>("#lobby-join-btn")!;
   const joinStatusEl =
     overlay.querySelector<HTMLDivElement>("#lobby-join-status")!;
-  const roomPanel = overlay.querySelector<HTMLDivElement>("#lobby-room-panel")!;
+  const rightContent = overlay.querySelector<HTMLDivElement>("#lobby-right-content")!;
+  const roomInfoPanel = overlay.querySelector<HTMLDivElement>("#lobby-room-info")!;
   const roomTitleEl =
     overlay.querySelector<HTMLDivElement>("#lobby-room-title")!;
   const roomPlayersEl = overlay.querySelector<HTMLDivElement>(
@@ -251,13 +253,13 @@ export const createLobbyScene = (
     if (!currentRoom) return;
     const mode = GAME_MODE_LABELS[currentRoom.game_mode];
     const privTag = currentRoom.is_private ? " 🔒 Private" : " 🌐 Public";
-    roomTitleEl.textContent = `${mode}${privTag}  ·  Room: ${currentRoom.code}  (${players.length}/${currentRoom.max_players})`;
-    roomPlayersEl.textContent = players
+    roomTitleEl.textContent = `${mode}${privTag} · Code: ${currentRoom.code} (${players.length}/${currentRoom.max_players})`;
+    roomPlayersEl.innerHTML = players
       .map(
         (p) =>
-          `${p.is_host ? "♛" : "○"}  ${p.player_name}${p.is_host ? " (Host)" : ""}`,
+          `<div class="lobby-ri-player">${p.is_host ? "♛" : "○"} ${p.player_name}${p.is_host ? " (Host)" : ""}</div>`,
       )
-      .join("   ");
+      .join("");
 
     const me = findMe(players);
     const isHost = me?.is_host ?? false;
@@ -275,7 +277,8 @@ export const createLobbyScene = (
       roomWaitingEl.textContent = "Ready to start!";
     }
 
-    roomPanel.classList.add("visible");
+    rightContent.style.display = "none";
+    roomInfoPanel.style.display = "";
     createPublicBtn.disabled = true;
     createPrivateBtn.disabled = true;
     joinCodeBtn.disabled = true;
@@ -402,6 +405,7 @@ export const createLobbyScene = (
         currentRoom.game_mode === "bigtwo" ? "bigtwo" : currentRoom.game_mode,
         {
           playerName,
+          userId,
           balance: STARTING_BALANCE,
           roomId: currentRoom.id,
           isHost: true,
@@ -427,7 +431,8 @@ export const createLobbyScene = (
       stopHeartbeat = null;
 
       // Reset UI
-      roomPanel.classList.remove("visible");
+      roomInfoPanel.style.display = "none";
+      rightContent.style.display = "";
       createPublicBtn.disabled = false;
       createPrivateBtn.disabled = false;
       joinCodeBtn.disabled = joinCode.length !== 6;

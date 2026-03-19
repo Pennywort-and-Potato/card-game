@@ -11,6 +11,7 @@ import {
   dealCards,
   detectCombo,
   findThreeOfSpadesOwner,
+  findStartingCard,
   getCardValue,
   isValidFirstPlay,
   sortHand,
@@ -58,9 +59,9 @@ type SlotLayout = {
   isLocal: boolean;
 };
 
-function buildLayout(players: BigTwoMpPlayer[], myName: string): SlotLayout[] {
-  const me   = players.find(p => p.name === myName);
-  const opps = players.filter(p => p.name !== myName);
+function buildLayout(players: BigTwoMpPlayer[], myId: string): SlotLayout[] {
+  const me   = players.find(p => p.id === myId);
+  const opps = players.filter(p => p.id !== myId);
 
   // Opponent anchor grid (top-left of each slot)
   const oppAnchors: Array<{ x: number; y: number }> = (() => {
@@ -156,7 +157,7 @@ function drawOppSlot(
 
   // Phase-specific status
   if (state.phase === "lobby") {
-    const rdy = (state.ready_players ?? []).includes(p.name);
+    const rdy = (state.ready_players ?? []).includes(p.id);
     addText(container, rdy ? "✔ READY" : "waiting…", x + 54, y + 26, 9,
       rdy ? "#4ade80" : "#555577");
   } else if (state.phase === "playing") {
@@ -207,7 +208,7 @@ function drawLocalSlot(
   addText(container, displayName + " (You)", x + 54, y + 8, 10, isActive ? "#ffd700" : "#eeeeff", true);
 
   if (state.phase === "lobby") {
-    const rdy = (state.ready_players ?? []).includes(p.name);
+    const rdy = (state.ready_players ?? []).includes(p.id);
     addText(container, rdy ? "✔  READY" : "press READY to start", x + 54, y + 27, 9,
       rdy ? "#4ade80" : "#888899");
   } else if (state.phase === "playing") {
@@ -230,7 +231,6 @@ export const createBigTwoMpScene = (
   const root = new Container() as SceneContainer;
   root.label = "big-two-mp-scene";
 
-  const playerName = (params.playerName as string) ?? "Player";
   const roomId     = params.roomId as string;
   const userId     = params.userId as string;
   const isHost     = (params.isHost as boolean) ?? false;
@@ -303,7 +303,7 @@ export const createBigTwoMpScene = (
     `;
     if (!alreadyReady) {
       actionsEl.querySelector("#bt-mp-ready")!.addEventListener("click", () => {
-        void submitAction(roomId, playerName, "ready");
+        void submitAction(roomId, userId, "ready");
         showLobbyActions(true);
       });
     }
@@ -339,11 +339,11 @@ export const createBigTwoMpScene = (
     clearLayer(slotsLayer);
     glowGraphics.clear();
 
-    const slots = buildLayout(state.players, playerName);
+    const slots = buildLayout(state.players, userId);
     const currentPlayer = state.phase === "playing" ? state.current_player : null;
 
     for (const sd of slots) {
-      const isActive = sd.player.name === currentPlayer;
+      const isActive = sd.player.id === currentPlayer;
       if (sd.isLocal) {
         drawLocalSlot(slotsLayer, sd, state, isActive);
       } else {
@@ -400,10 +400,10 @@ export const createBigTwoMpScene = (
     clearLayer(handLayer);
     selectedIndices.clear();
 
-    const myPlayer = state.players.find(p => p.name === playerName);
+    const myPlayer = state.players.find(p => p.id === userId);
     if (!myPlayer || myPlayer.finished || state.phase !== "playing") return;
 
-    const isMyTurn = state.current_player === playerName;
+    const isMyTurn = state.current_player === userId;
     const hand = sortHand(myPlayer.hand);
     myHandSorted = hand;
 
@@ -441,7 +441,7 @@ export const createBigTwoMpScene = (
     const passBtn = actionsEl.querySelector<HTMLButtonElement>("#bt-mp-pass");
     if (!playBtn) return;
 
-    const isMyTurn = state.current_player === playerName;
+    const isMyTurn = state.current_player === userId;
     if (!isMyTurn) { playBtn.disabled = true; if (passBtn) passBtn.disabled = true; return; }
 
     if (passBtn) passBtn.disabled = !state.last_combo || state.is_first_move;
@@ -451,7 +451,7 @@ export const createBigTwoMpScene = (
     const combo = detectCombo(selected);
     if (!combo) { playBtn.disabled = true; return; }
 
-    if (state.is_first_move)    { playBtn.disabled = !isValidFirstPlay(combo); return; }
+    if (state.is_first_move)    { playBtn.disabled = !isValidFirstPlay(combo, state.start_card ?? { rank: "3", suit: "spades", isFaceUp: true }); return; }
     if (!state.last_combo)       { playBtn.disabled = false; return; }
     playBtn.disabled = !canBeat(combo, state.last_combo);
   }
@@ -461,7 +461,7 @@ export const createBigTwoMpScene = (
       const n = (state.ready_players ?? []).length;
       statusEl.textContent = `Waiting for players… (${n}/${state.players.length} ready)`;
     } else if (state.phase === "playing") {
-      const isMyTurn = state.current_player === playerName;
+      const isMyTurn = state.current_player === userId;
       if (isMyTurn) {
         statusEl.textContent = state.is_first_move
           ? "Your turn! Must include 3♠"
@@ -469,7 +469,8 @@ export const createBigTwoMpScene = (
             ? `Beat: ${comboLabel(state.last_combo)}`
             : "Your turn — play anything";
       } else {
-        statusEl.textContent = `Waiting for ${state.current_player}…`;
+        const currentPlayer = state.players.find(p => p.id === state.current_player);
+        statusEl.textContent = `Waiting for ${currentPlayer?.name ?? state.current_player}…`;
       }
     } else {
       statusEl.textContent = "Game over!";
@@ -487,12 +488,12 @@ export const createBigTwoMpScene = (
     renderHand(state);
     updateHudStatus(state);
 
-    const myRdy = state.ready_players.includes(playerName);
+    const myRdy = state.ready_players.includes(userId);
 
     if (state.phase === "lobby") {
       showLobbyActions(myRdy);
     } else if (state.phase === "playing") {
-      const isMyTurn = state.current_player === playerName;
+      const isMyTurn = state.current_player === userId;
       actionsEl.style.display = isMyTurn ? "flex" : "none";
       if (!actionsEl.querySelector("#bt-mp-play")) showPlayActions();
       if (isMyTurn) updatePlayBtn(state);
@@ -548,7 +549,7 @@ export const createBigTwoMpScene = (
     if (!gs || gs.phase !== "playing") return;
     hintEl.textContent = "";
 
-    const myPlayer = gs.players.find(p => p.name === playerName);
+    const myPlayer = gs.players.find(p => p.id === userId);
     if (!myPlayer) return;
 
     const hand    = sortHand(myPlayer.hand);
@@ -556,8 +557,12 @@ export const createBigTwoMpScene = (
     const selected = indices.map(i => hand[i]);
     const combo = detectCombo(selected);
     if (!combo) { hintEl.textContent = "Not a valid combination!"; return; }
-    if (gs.is_first_move && !isValidFirstPlay(combo)) {
-      hintEl.textContent = "First play must include 3♠!"; return;
+    if (gs.is_first_move && !isValidFirstPlay(combo, gs.start_card ?? { rank: "3", suit: "spades", isFaceUp: true })) {
+      const sc = gs.start_card;
+      const label = sc && !(sc.rank === "3" && sc.suit === "spades")
+        ? `${sc.rank}${({ hearts: "♥", diamonds: "♦", clubs: "♣", spades: "♠" })[sc.suit]}`
+        : "3♠";
+      hintEl.textContent = `First play must include ${label}!`; return;
     }
     if (gs.last_combo && !canBeat(combo, gs.last_combo)) {
       hintEl.textContent = `Can't beat the current ${gs.last_combo.type}!`; return;
@@ -569,7 +574,7 @@ export const createBigTwoMpScene = (
     if (passBtn) passBtn.disabled = true;
 
     animateCardFly(indices, () => {
-      void submitAction(roomId, playerName, "play", { indices });
+      void submitAction(roomId, userId, "play", { indices });
     });
   }
 
@@ -579,17 +584,17 @@ export const createBigTwoMpScene = (
     const passBtn = actionsEl.querySelector<HTMLButtonElement>("#bt-mp-pass");
     if (playBtn) playBtn.disabled = true;
     if (passBtn) passBtn.disabled = true;
-    void submitAction(roomId, playerName, "pass");
+    void submitAction(roomId, userId, "pass");
   }
 
   // ── Host: game engine ─────────────────────────────────────────────────────
 
-  const nextTurn = (state: BigTwoMpState, fromName: string): void => {
-    const idx = state.players.findIndex((p: BigTwoMpPlayer) => p.name === fromName);
+  const nextTurn = (state: BigTwoMpState, fromId: string): void => {
+    const idx = state.players.findIndex((p: BigTwoMpPlayer) => p.id === fromId);
     const n   = state.players.length;
     for (let i = 1; i < n; i++) {
       const next = state.players[(idx + i) % n];
-      if (!next.finished) { state.current_player = next.name; return; }
+      if (!next.finished) { state.current_player = next.id; return; }
     }
   };
 
@@ -624,8 +629,9 @@ export const createBigTwoMpScene = (
         const handsArr    = state.players.map(p => p.hand);
         const firstIdx    = findThreeOfSpadesOwner(handsArr);
         state.phase          = "playing";
-        state.current_player = state.players[firstIdx].name;
+        state.current_player = state.players[firstIdx].id;
         state.is_first_move  = true;
+        state.start_card     = findStartingCard(handsArr);
         state.last_combo     = null;
         state.last_played_by = null;
         state.passed         = [];
@@ -647,13 +653,13 @@ export const createBigTwoMpScene = (
 
       const active = state.players.filter((p: BigTwoMpPlayer) => !p.finished);
       const allPassedExceptLast = active.every(
-        (p: BigTwoMpPlayer) => p.name === state.last_played_by || state.passed.includes(p.name),
+        (p: BigTwoMpPlayer) => p.id === state.last_played_by || state.passed.includes(p.id),
       );
       if (allPassedExceptLast && state.last_played_by) {
         state.last_combo     = null;
         state.passed         = [];
-        const winner = state.players.find((p: BigTwoMpPlayer) => p.name === fresh.last_played_by);
-        if (winner && !winner.finished) state.current_player = winner.name;
+        const winner = state.players.find((p: BigTwoMpPlayer) => p.id === fresh.last_played_by);
+        if (winner && !winner.finished) state.current_player = winner.id;
         else nextTurn(state, state.current_player);
         state.last_played_by = null;
       }
@@ -665,7 +671,7 @@ export const createBigTwoMpScene = (
       if (state.phase !== "playing" || state.current_player !== action.player_name) {
         processing = false; void drainQueue(); return;
       }
-      const player = state.players.find((p: BigTwoMpPlayer) => p.name === action.player_name);
+      const player = state.players.find((p: BigTwoMpPlayer) => p.id === action.player_name);
       if (!player) { processing = false; void drainQueue(); return; }
 
       const hand     = sortHand(player.hand);
@@ -673,7 +679,7 @@ export const createBigTwoMpScene = (
       const selected = idxs.map(i => hand[i]);
       const combo    = detectCombo(selected);
       if (!combo) { processing = false; void drainQueue(); return; }
-      if (state.is_first_move && !isValidFirstPlay(combo)) { processing = false; void drainQueue(); return; }
+      if (state.is_first_move && !isValidFirstPlay(combo, state.start_card ?? { rank: "3", suit: "spades", isFaceUp: true })) { processing = false; void drainQueue(); return; }
       if (!state.is_first_move && state.last_combo && !canBeat(combo, state.last_combo)) {
         processing = false; void drainQueue(); return;
       }
@@ -689,14 +695,14 @@ export const createBigTwoMpScene = (
       if (player.hand.length === 0) {
         player.finished    = true;
         player.finish_rank = state.finish_order.length + 1;
-        state.finish_order.push(player.name);
+        state.finish_order.push(player.id);
 
         const remaining = state.players.filter((p: BigTwoMpPlayer) => !p.finished);
         if (remaining.length <= 1) {
           if (remaining.length === 1) {
             remaining[0].finished    = true;
             remaining[0].finish_rank = state.finish_order.length + 1;
-            state.finish_order.push(remaining[0].name);
+            state.finish_order.push(remaining[0].id);
           }
           state.phase = "game-over";
           await pushGameState(roomId, state);
@@ -716,6 +722,7 @@ export const createBigTwoMpScene = (
   const initGame = async (): Promise<void> => {
     const roomPlayers = await getRoomPlayers(roomId);
     const players: BigTwoMpPlayer[] = roomPlayers.map(rp => ({
+      id: rp.user_id ?? rp.player_name,
       name: rp.player_name,
       hand: [],
       finished: false,
@@ -731,6 +738,7 @@ export const createBigTwoMpScene = (
       passed:        [],
       is_first_move: true,
       finish_order:  [],
+      start_card:    null,
     };
     await pushGameState(roomId, state);
   };

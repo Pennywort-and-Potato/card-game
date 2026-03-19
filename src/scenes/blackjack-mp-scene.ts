@@ -38,7 +38,6 @@ export const createBlackjackMpScene = (
   const root = new Container() as SceneContainer;
   root.label = "blackjack-mp-scene";
 
-  const playerName = (params.playerName as string) ?? "Player";
   const roomId = params.roomId as string;
   const userId = params.userId as string;
   const isHost = (params.isHost as boolean) ?? false;
@@ -95,9 +94,9 @@ export const createBlackjackMpScene = (
   const render = (state: BlackjackMpState) => {
     while (dynamicLayer.children.length > 0) dynamicLayer.removeChildAt(0);
 
-    const myPlayer = state.players.find((p) => p.name === playerName);
+    const myPlayer = state.players.find((p) => p.id === userId);
     const myTurn =
-      state.phase === "player-turns" && state.active_player === playerName;
+      state.phase === "player-turns" && state.active_player === userId;
 
     // Dealer hand
     const dealerLbl = new Text({
@@ -140,8 +139,8 @@ export const createBlackjackMpScene = (
 
     state.players.forEach((player, i) => {
       const slotX = 20 + i * SLOT_W;
-      const isMe = player.name === playerName;
-      const isActive = state.active_player === player.name;
+      const isMe = player.id === userId;
+      const isActive = state.active_player === player.id;
 
       if (isActive && state.phase === "player-turns") {
         const hl = new Graphics();
@@ -284,8 +283,8 @@ export const createBlackjackMpScene = (
     playersPanel.style.display = "";
     playersListEl.innerHTML = state.players
       .map((p) => {
-        const isActive = state.active_player === p.name;
-        const isMe = p.name === playerName;
+        const isActive = state.active_player === p.id;
+        const isMe = p.id === userId;
         const cls = isActive ? "active" : isMe ? "me" : "";
         return `<div class="hud-player-row ${cls}">${p.name}${isMe ? " (You)" : ""} <span>$${p.balance}</span></div>`;
       })
@@ -294,10 +293,10 @@ export const createBlackjackMpScene = (
 
   // ── Host: game engine ────────────────────────────────────────────────────
   const advanceTurn = (state: BlackjackMpState): void => {
-    const idx = state.players.findIndex((p) => p.name === state.active_player);
+    const idx = state.players.findIndex((p) => p.id === state.active_player);
     for (let i = idx + 1; i < state.players.length; i++) {
       if (state.players[i].status === "playing") {
-        state.active_player = state.players[i].name;
+        state.active_player = state.players[i].id;
         return;
       }
     }
@@ -370,7 +369,7 @@ export const createBlackjackMpScene = (
     ) as BlackjackMpState;
 
     if (action.action_type === "ready") {
-      const p = state.players.find((x) => x.name === action.player_name);
+      const p = state.players.find((x) => x.id === action.player_name);
       if (p && p.status === "betting") p.status = "playing";
 
       if (state.players.every((x) => x.status !== "betting")) {
@@ -389,7 +388,7 @@ export const createBlackjackMpScene = (
         const first = state.players.find((x) => x.status === "playing");
         if (first) {
           state.phase = "player-turns";
-          state.active_player = first.name;
+          state.active_player = first.id;
         } else {
           state.phase = "dealer-turn";
           await pushGameState(roomId, state);
@@ -404,7 +403,7 @@ export const createBlackjackMpScene = (
       action.action_type === "hit" &&
       state.active_player === action.player_name
     ) {
-      const p = state.players.find((x) => x.name === action.player_name)!;
+      const p = state.players.find((x) => x.id === action.player_name)!;
       p.hand = [...p.hand, { ...state.deck.shift()!, isFaceUp: true }];
       const hv = calculateHandValue(p.hand);
       if (hv.isBust) {
@@ -425,7 +424,7 @@ export const createBlackjackMpScene = (
       action.action_type === "stand" &&
       state.active_player === action.player_name
     ) {
-      const p = state.players.find((x) => x.name === action.player_name)!;
+      const p = state.players.find((x) => x.id === action.player_name)!;
       p.status = "stand";
       advanceTurn(state);
       await pushGameState(roomId, state);
@@ -466,6 +465,7 @@ export const createBlackjackMpScene = (
       deck,
       dealer_hand: [],
       players: roomPlayers.map((p) => ({
+        id: p.user_id ?? p.player_name,
         name: p.player_name,
         hand: [],
         bet: MP_BET,
@@ -482,16 +482,16 @@ export const createBlackjackMpScene = (
   hitBtnEl.addEventListener("click", () => {
     hitBtnEl.disabled = true;
     standBtnEl.disabled = true;
-    void submitAction(roomId, playerName, "hit");
+    void submitAction(roomId, userId, "hit");
   });
   standBtnEl.addEventListener("click", () => {
     hitBtnEl.disabled = true;
     standBtnEl.disabled = true;
-    void submitAction(roomId, playerName, "stand");
+    void submitAction(roomId, userId, "stand");
   });
   readyBtnEl.addEventListener("click", () => {
     readyBtnEl.style.display = "none";
-    void submitAction(roomId, playerName, "ready");
+    void submitAction(roomId, userId, "ready");
   });
 
   if (isHost) {

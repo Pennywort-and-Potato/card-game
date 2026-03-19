@@ -14,6 +14,7 @@ import {
   dealCards,
   detectCombo,
   findThreeOfSpadesOwner,
+  findStartingCard,
   isValidFirstPlay,
   sortHand,
 } from "../systems/big-two-logic";
@@ -60,6 +61,7 @@ export const createBigTwoScene = (
   let lastPlayedBy = 0;
   const passedInRound = new Set<number>();
   let isFirstMove = true;
+  let startCard: CardData = { rank: "3", suit: "spades", isFaceUp: true };
   let gameOver = false;
   const selectedIndices = new Set<number>();
   const finishOrder: number[] = [];
@@ -383,6 +385,7 @@ export const createBigTwoScene = (
     for (let i = 0; i < 4; i++) {
       players[i].hand = sortHand(hands[i]);
     }
+    startCard = findStartingCard(hands);
     currentPlayerIdx = findThreeOfSpadesOwner(hands);
     lastPlayedBy = currentPlayerIdx;
     isFirstMove = true;
@@ -391,9 +394,12 @@ export const createBigTwoScene = (
     selectedIndices.clear();
     finishOrder.length = 0;
     gameOver = false;
-  
+
+    const hasThreeSpades = startCard.rank === "3" && startCard.suit === "spades";
     renderAll();
-    msgText.text = `${players[currentPlayerIdx].name} starts (has ♠3)`;
+    msgText.text = hasThreeSpades
+      ? `${players[currentPlayerIdx].name} starts (has ♠3)`
+      : `${players[currentPlayerIdx].name} starts (lowest card)`;
     beginTurn();
   }
 
@@ -411,7 +417,7 @@ export const createBigTwoScene = (
   function doAITurn() {
     if (gameOver) return;
     const player = players[currentPlayerIdx];
-    const combo = aiPickPlay(player.hand, currentCombo, isFirstMove);
+    const combo = aiPickPlay(player.hand, currentCombo, isFirstMove, startCard);
     if (combo) {
       executePlay(combo);
     } else {
@@ -657,8 +663,11 @@ export const createBigTwoScene = (
       return;
     }
 
-    if (isFirstMove && !isValidFirstPlay(combo)) {
-      hintEl.textContent = "First play must include the ♠3!";
+    if (isFirstMove && !isValidFirstPlay(combo, startCard)) {
+      const label = startCard.rank === "3" && startCard.suit === "spades"
+        ? "♠3"
+        : `${startCard.rank}${({ hearts: "♥", diamonds: "♦", clubs: "♣", spades: "♠" })[startCard.suit]}`;
+      hintEl.textContent = `First play must include the ${label}!`;
       return;
     }
 

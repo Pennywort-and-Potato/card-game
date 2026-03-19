@@ -39,7 +39,6 @@ export const createPokerMpScene = (
   const root = new Container() as SceneContainer;
   root.label = "poker-mp-scene";
 
-  const playerName = (params.playerName as string) ?? "Player";
   const roomId = params.roomId as string;
   const userId = params.userId as string;
   const isHost = (params.isHost as boolean) ?? false;
@@ -101,11 +100,11 @@ export const createPokerMpScene = (
 
     potEl.textContent = `Pot: $${state.pot}`;
 
-    const myPlayer = state.players.find((p) => p.name === playerName);
+    const myPlayer = state.players.find((p) => p.id === userId);
     const myTurn =
       state.phase !== "showdown" &&
       state.phase !== "round-over" &&
-      state.active_player === playerName &&
+      state.active_player === userId &&
       !(myPlayer?.folded ?? true);
 
     // Community cards
@@ -137,8 +136,8 @@ export const createPokerMpScene = (
 
     state.players.forEach((player, i) => {
       const slotX = 20 + i * SLOT_W;
-      const isMe = player.name === playerName;
-      const isActive = state.active_player === player.name;
+      const isMe = player.id === userId;
+      const isActive = state.active_player === player.id;
       const isFolded = player.folded;
 
       if (isActive && myTurn) {
@@ -277,7 +276,7 @@ export const createPokerMpScene = (
     playersListEl.innerHTML = state.players
       .map((p) => {
         const isActive = state.active_player === p.name;
-        const isMe = p.name === playerName;
+        const isMe = p.id === userId;
         const cls = isActive ? "active" : isMe ? "me" : "";
         return `<div class="hud-player-row ${cls}">${p.name}${isMe ? " (You)" : ""}${p.folded ? " (F)" : ""} <span>$${p.balance}</span></div>`;
       })
@@ -292,7 +291,7 @@ export const createPokerMpScene = (
     const n = state.players.length;
     for (let i = 1; i <= n; i++) {
       const p = state.players[(afterIdx + i) % n];
-      if (!p.folded) return p.name;
+      if (!p.folded) return p.id;
     }
     return null;
   };
@@ -410,7 +409,7 @@ export const createPokerMpScene = (
     }
 
     const playerIdx = state.players.findIndex(
-      (p) => p.name === action.player_name,
+      (p) => p.id === action.player_name,
     );
     const player = state.players[playerIdx];
     if (!player || player.folded) {
@@ -500,6 +499,7 @@ export const createPokerMpScene = (
       current_bet: 0,
       dealer_index: 0,
       players: roomPlayers.map((p) => ({
+        id: p.user_id ?? p.player_name,
         name: p.player_name,
         hand: [],
         balance: p.balance,
@@ -529,19 +529,19 @@ export const createPokerMpScene = (
     [foldBtnEl, callBtnEl, raiseBtnEl].forEach((b) => {
       b.disabled = true;
     });
-    void submitAction(roomId, playerName, "fold");
+    void submitAction(roomId, userId, "fold");
   });
   callBtnEl.addEventListener("click", () => {
     [foldBtnEl, callBtnEl, raiseBtnEl].forEach((b) => {
       b.disabled = true;
     });
-    void submitAction(roomId, playerName, "call");
+    void submitAction(roomId, userId, "call");
   });
   raiseBtnEl.addEventListener("click", () => {
     [foldBtnEl, callBtnEl, raiseBtnEl].forEach((b) => {
       b.disabled = true;
     });
-    void submitAction(roomId, playerName, "raise");
+    void submitAction(roomId, userId, "raise");
   });
 
   if (isHost) {

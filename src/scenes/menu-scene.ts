@@ -4,7 +4,7 @@ import type { SceneManager } from "../systems/scene-manager";
 import type { SceneParams } from "../types";
 import { SCREEN_WIDTH, SCREEN_HEIGHT } from "../utils/constants";
 import { fetchLeaderboard } from "../lib/game-api";
-import { signOut } from "../lib/auth";
+import { signOut, getCurrentUser } from "../lib/auth";
 
 export const createMenuScene = (
   manager: SceneManager,
@@ -14,6 +14,7 @@ export const createMenuScene = (
   root.label = "menu-scene";
 
   const initialName = (params.playerName as string) || "Player";
+  let userId = (params.userId as string) || "";
 
   const bg = new Graphics();
   bg.rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT).fill(0x08080f);
@@ -86,16 +87,20 @@ export const createMenuScene = (
   });
 
   overlay.querySelector("#card-blackjack")!.addEventListener("click", () => {
-    manager.goto("lobby", {
-      playerName: getPlayerName(),
-      gameMode: "blackjack",
-    });
+    manager.goto("lobby", { playerName: getPlayerName(), userId, gameMode: "blackjack" });
   });
   overlay.querySelector("#card-poker")!.addEventListener("click", () => {
-    manager.goto("lobby", { playerName: getPlayerName(), gameMode: "poker" });
+    manager.goto("lobby", { playerName: getPlayerName(), userId, gameMode: "poker" });
   });
   overlay.querySelector("#card-bigtwo")!.addEventListener("click", () => {
-    manager.goto("lobby", { playerName: getPlayerName(), gameMode: "bigtwo" });
+    manager.goto("lobby", { playerName: getPlayerName(), userId, gameMode: "bigtwo" });
+  });
+
+  // ── Load auth (fills userId and name if not passed via params) ──────────────
+  void getCurrentUser().then((user) => {
+    if (!user) { manager.goto("auth"); return; }
+    if (!userId) userId = user.id;
+    if (nameInput.value === "Player" || !nameInput.value) nameInput.value = user.displayName;
   });
 
   // ── Leaderboard ─────────────────────────────────────────────────────────────
