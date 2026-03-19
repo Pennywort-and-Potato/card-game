@@ -88,7 +88,7 @@ export const joinRoom = async (
     .select("*")
     .eq("code", code.toUpperCase())
     .eq("status", "waiting")
-    .single();
+    .maybeSingle();
   if (roomErr || !room) throw new Error("Room not found or already started");
 
   const { data: existing } = await supabase
@@ -138,7 +138,7 @@ export const getMyWaitingRoom = async (
     .select("*")
     .eq("host_user_id", userId)
     .eq("status", "waiting")
-    .single();
+    .maybeSingle();
   if (!room) return null;
 
   const { data: players } = await supabase
@@ -250,7 +250,11 @@ export const pingRoom = async (roomId: string): Promise<void> => {
 
 /** Hard-delete the room (cascades to players and game_states). */
 export const deleteRoom = async (roomId: string): Promise<void> => {
-  await supabase.from("poker_rooms").delete().eq("id", roomId);
+  const { error } = await supabase.from("poker_rooms").delete().eq("id", roomId);
+  if (error) {
+    console.error("[room-api] deleteRoom error:", error.message);
+    throw error;
+  }
 };
 
 /**
@@ -309,4 +313,38 @@ export const subscribeToPublicRooms = (onUpdate: () => void) => {
     .subscribe();
 
   return () => void supabase.removeChannel(channel);
+};
+
+export const leaveRoom = async (
+  roomId: string,
+  userId: string,
+): Promise<void> => {
+  const { data: player, error: fetchErr } = await supabase
+    .from("poker_room_players")
+    .select("is_host")
+    .eq("room_id", roomId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (fetchErr) {
+    console.error("[room-api] leaveRoom fetch error:", fetchErr.message);
+    throw fetchErr;
+  }
+
+  if (player?.is_host) {
+    // Host leaving deletes the room
+    await deleteRoom(roomId);
+  } else {
+    // Guest leaving just removes them from the players list
+    const { error: delErr } = await supabase
+      .from("poker_room_players")
+      .delete()
+      .eq("room_id", roomId)
+      .eq("user_id", userId);
+
+    if (delErr) {
+      console.error("[room-api] leaveRoom delete error:", delErr.message);
+      throw delErr;
+    }
+  }
 };

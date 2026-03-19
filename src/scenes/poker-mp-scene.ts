@@ -24,6 +24,7 @@ import {
 } from "../lib/game-state-api";
 import {
   getRoomPlayers,
+  leaveRoom,
   startHostHeartbeat,
   subscribeToRoomDeletion,
 } from "../lib/room-api";
@@ -40,6 +41,7 @@ export const createPokerMpScene = (
 
   const playerName = (params.playerName as string) ?? "Player";
   const roomId = params.roomId as string;
+  const userId = params.userId as string;
   const isHost = (params.isHost as boolean) ?? false;
 
   let gs: PokerMpState | null = null;
@@ -57,7 +59,7 @@ export const createPokerMpScene = (
   hud.innerHTML = `
     <div class="hud-topbar">
       <button class="hud-back-btn" id="pk-mp-back">← Menu</button>
-      <span class="hud-title">POKER — MULTIPLAYER</span>
+      <span class="hud-title">POKER</span>
       <div class="hud-pot" id="pk-mp-pot">Pot: $0</div>
     </div>
     <div class="hud-status" id="pk-mp-status">Connecting…</div>
@@ -87,7 +89,10 @@ export const createPokerMpScene = (
 
   hud
     .querySelector("#pk-mp-back")!
-    .addEventListener("click", () => manager.goto("menu"));
+    .addEventListener("click", async () => {
+      await leaveRoom(roomId, userId);
+      manager.goto("menu");
+    });
 
   // ── Render ────────────────────────────────────────────────────────────────
   const render = (state: PokerMpState) => {
