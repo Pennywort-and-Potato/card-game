@@ -40,7 +40,7 @@ export const createLobbyScene = (
   const playerName = (params.playerName as string) || "Player";
   const initialMode = (params.gameMode as RoomGameMode) ?? "blackjack";
 
-  let selectedMode: RoomGameMode = initialMode;
+  const selectedMode: RoomGameMode = initialMode;
   let currentRoom: RoomWithPlayers | null = null;
   let latestPlayers: RoomPlayer[] = [];
   let unsubscribeRoom: (() => void) | null = null;
