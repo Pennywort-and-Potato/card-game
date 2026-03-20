@@ -87,20 +87,36 @@ export const createMenuScene = (
   });
 
   overlay.querySelector("#card-blackjack")!.addEventListener("click", () => {
-    manager.goto("lobby", { playerName: getPlayerName(), userId, gameMode: "blackjack" });
+    manager.goto("lobby", {
+      playerName: getPlayerName(),
+      userId,
+      gameMode: "blackjack",
+    });
   });
   overlay.querySelector("#card-poker")!.addEventListener("click", () => {
-    manager.goto("lobby", { playerName: getPlayerName(), userId, gameMode: "poker" });
+    manager.goto("lobby", {
+      playerName: getPlayerName(),
+      userId,
+      gameMode: "poker",
+    });
   });
   overlay.querySelector("#card-bigtwo")!.addEventListener("click", () => {
-    manager.goto("lobby", { playerName: getPlayerName(), userId, gameMode: "bigtwo" });
+    manager.goto("lobby", {
+      playerName: getPlayerName(),
+      userId,
+      gameMode: "bigtwo",
+    });
   });
 
   // ── Load auth (fills userId and name if not passed via params) ──────────────
   void getCurrentUser().then((user) => {
-    if (!user) { manager.goto("auth"); return; }
+    if (!user) {
+      manager.goto("auth");
+      return;
+    }
     if (!userId) userId = user.id;
-    if (nameInput.value === "Player" || !nameInput.value) nameInput.value = user.displayName;
+    if (nameInput.value === "Player" || !nameInput.value)
+      nameInput.value = user.displayName;
   });
 
   // ── Leaderboard ─────────────────────────────────────────────────────────────

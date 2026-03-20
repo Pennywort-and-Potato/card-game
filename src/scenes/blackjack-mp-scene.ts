@@ -83,12 +83,10 @@ export const createBlackjackMpScene = (
     "#bj-mp-players-list",
   )!;
 
-  hud
-    .querySelector("#bj-mp-back")!
-    .addEventListener("click", async () => {
-      await leaveRoom(roomId, userId);
-      manager.goto("menu");
-    });
+  hud.querySelector("#bj-mp-back")!.addEventListener("click", async () => {
+    await leaveRoom(roomId, userId);
+    manager.goto("menu");
+  });
 
   // ── Render ────────────────────────────────────────────────────────────────
   const render = (state: BlackjackMpState) => {

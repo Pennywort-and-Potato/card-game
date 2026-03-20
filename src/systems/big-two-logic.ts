@@ -201,7 +201,8 @@ export function canBeat(play: BigTwoCombo, current: BigTwoCombo): boolean {
   if (current.type === "double-sequence") {
     if (play.type === "double-sequence") {
       if (play.length > current.length) return true;
-      if (play.length === current.length) return play.highCardValue > current.highCardValue;
+      if (play.length === current.length)
+        return play.highCardValue > current.highCardValue;
     }
     if (play.type === "quad" && current.length === 6) return true; // Quad beats 3 pairs
     return false;
@@ -351,7 +352,9 @@ export function aiPickPlay(
 ): BigTwoCombo | null {
   // First move of the game: must play the starting card
   if (isFirstMove && current === null && startCard) {
-    const mustPlay = hand.find((c) => c.rank === startCard.rank && c.suit === startCard.suit);
+    const mustPlay = hand.find(
+      (c) => c.rank === startCard.rank && c.suit === startCard.suit,
+    );
     if (mustPlay) {
       return {
         type: "single",
@@ -438,13 +441,23 @@ export function findStartingCard(hands: CardData[][]): CardData {
 export function findThreeOfSpadesOwner(hands: CardData[][]): number {
   const startCard = findStartingCard(hands);
   for (let i = 0; i < hands.length; i++) {
-    if (hands[i].some((c) => c.rank === startCard.rank && c.suit === startCard.suit)) return i;
+    if (
+      hands[i].some(
+        (c) => c.rank === startCard.rank && c.suit === startCard.suit,
+      )
+    )
+      return i;
   }
   return 0;
 }
 
-export function isValidFirstPlay(combo: BigTwoCombo, startCard: CardData): boolean {
-  return combo.cards.some((c) => c.rank === startCard.rank && c.suit === startCard.suit);
+export function isValidFirstPlay(
+  combo: BigTwoCombo,
+  startCard: CardData,
+): boolean {
+  return combo.cards.some(
+    (c) => c.rank === startCard.rank && c.suit === startCard.suit,
+  );
 }
 
 export function comboLabel(combo: BigTwoCombo): string {

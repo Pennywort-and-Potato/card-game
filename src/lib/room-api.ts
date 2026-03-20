@@ -252,7 +252,10 @@ export const pingRoom = async (roomId: string): Promise<void> => {
 
 /** Hard-delete the room (cascades to players and game_states). */
 export const deleteRoom = async (roomId: string): Promise<void> => {
-  const { error } = await supabase.from("poker_rooms").delete().eq("id", roomId);
+  const { error } = await supabase
+    .from("poker_rooms")
+    .delete()
+    .eq("id", roomId);
   if (error) {
     console.error("[room-api] deleteRoom error:", error.message);
     throw error;

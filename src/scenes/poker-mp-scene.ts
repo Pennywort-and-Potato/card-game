@@ -86,12 +86,10 @@ export const createPokerMpScene = (
     "#pk-mp-players-list",
   )!;
 
-  hud
-    .querySelector("#pk-mp-back")!
-    .addEventListener("click", async () => {
-      await leaveRoom(roomId, userId);
-      manager.goto("menu");
-    });
+  hud.querySelector("#pk-mp-back")!.addEventListener("click", async () => {
+    await leaveRoom(roomId, userId);
+    manager.goto("menu");
+  });
 
   // ── Render ────────────────────────────────────────────────────────────────
   const render = (state: PokerMpState) => {

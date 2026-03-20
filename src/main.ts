@@ -55,11 +55,31 @@ const bootstrap = async () => {
 
   // Preload card assets
   const suits = ["H", "D", "C", "S"];
-  const ranks = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
-  const cardPaths = suits.flatMap((s) => ranks.map((r) => `assets/cards/${r}-${s}.png`));
-  const backPaths = ["back-blue", "back-red", "back-green", "back-black", "back-yellow"].map(
-    (b) => `assets/cards/${b}.png`,
+  const ranks = [
+    "A",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    "10",
+    "J",
+    "Q",
+    "K",
+  ];
+  const cardPaths = suits.flatMap((s) =>
+    ranks.map((r) => `assets/cards/${r}-${s}.png`),
   );
+  const backPaths = [
+    "back-blue",
+    "back-red",
+    "back-green",
+    "back-black",
+    "back-yellow",
+  ].map((b) => `assets/cards/${b}.png`);
   await Assets.load([...cardPaths, ...backPaths]);
 
   const manager = new SceneManager(viewport);

@@ -46,42 +46,55 @@ const LOCAL_SLOT_W = 380;
 const LOCAL_SLOT_H = 52;
 
 // Pixel-art colour palette
-const C_PANEL  = 0x0c0c20;
+const C_PANEL = 0x0c0c20;
 const C_BORDER = 0x252548;
-const C_GOLD   = 0xd4af37;
-const C_MUTED  = 0x555577;
-
+const C_GOLD = 0xd4af37;
+const C_MUTED = 0x555577;
 
 type SlotLayout = {
   player: BigTwoMpPlayer;
-  x: number; y: number;
-  w: number; h: number;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
   isLocal: boolean;
 };
 
 function buildLayout(players: BigTwoMpPlayer[], myId: string): SlotLayout[] {
-  const me   = players.find(p => p.id === myId);
-  const opps = players.filter(p => p.id !== myId);
+  const me = players.find((p) => p.id === myId);
+  const opps = players.filter((p) => p.id !== myId);
 
   // Opponent anchor grid (top-left of each slot)
   const oppAnchors: Array<{ x: number; y: number }> = (() => {
     if (opps.length === 1) return [{ x: 551, y: 8 }];
-    if (opps.length === 2) return [{ x: 324, y: 8 }, { x: 776, y: 8 }];
-    return [{ x: 4, y: 296 }, { x: 551, y: 8 }, { x: 1096, y: 296 }];
+    if (opps.length === 2)
+      return [
+        { x: 324, y: 8 },
+        { x: 776, y: 8 },
+      ];
+    return [
+      { x: 4, y: 296 },
+      { x: 551, y: 8 },
+      { x: 1096, y: 296 },
+    ];
   })();
 
   const result: SlotLayout[] = opps.map((p, i) => ({
     player: p,
-    x: oppAnchors[i].x, y: oppAnchors[i].y,
-    w: OPP_SLOT_W, h: OPP_SLOT_H,
+    x: oppAnchors[i].x,
+    y: oppAnchors[i].y,
+    w: OPP_SLOT_W,
+    h: OPP_SLOT_H,
     isLocal: false,
   }));
 
   if (me) {
     result.push({
       player: me,
-      x: 16, y: 655,
-      w: LOCAL_SLOT_W, h: LOCAL_SLOT_H,
+      x: 16,
+      y: 655,
+      w: LOCAL_SLOT_W,
+      h: LOCAL_SLOT_H,
       isLocal: true,
     });
   }
@@ -90,14 +103,26 @@ function buildLayout(players: BigTwoMpPlayer[], myId: string): SlotLayout[] {
 
 // ── Pixel-art drawing helpers ────────────────────────────────────────────────
 
-function pixelPanel(g: Graphics, x: number, y: number, w: number, h: number, active: boolean) {
+function pixelPanel(
+  g: Graphics,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  active: boolean,
+) {
   const borderCol = active ? C_GOLD : C_BORDER;
   g.rect(x, y, w, h).fill(0x02020e);
   g.rect(x + 2, y + 2, w - 4, h - 4).fill(C_PANEL);
   g.rect(x, y, w, h).stroke({ color: borderCol, width: 2 });
   // pixel corner accents
   const ac = active ? 0xffdd55 : 0x303060;
-  for (const [cx, cy] of [[x,y],[x+w-3,y],[x,y+h-3],[x+w-3,y+h-3]]) {
+  for (const [cx, cy] of [
+    [x, y],
+    [x + w - 3, y],
+    [x, y + h - 3],
+    [x + w - 3, y + h - 3],
+  ]) {
     g.rect(cx, cy, 3, 3).fill(ac);
   }
 }
@@ -105,21 +130,28 @@ function pixelPanel(g: Graphics, x: number, y: number, w: number, h: number, act
 function playerInitialsColor(name: string): number {
   const hues = [0x5555ff, 0xff5577, 0x55ffaa, 0xffaa22, 0xaa55ff, 0x22ccff];
   let h = 0;
-  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffff;
+  for (let i = 0; i < name.length; i++)
+    h = (h * 31 + name.charCodeAt(i)) & 0xffff;
   return hues[h % hues.length];
 }
 
 function addText(
   container: Container,
   text: string,
-  x: number, y: number,
+  x: number,
+  y: number,
   size: number,
   fill: string,
   bold = false,
 ) {
   const t = new Text({
     text,
-    style: new TextStyle({ fontSize: size, fill, fontWeight: bold ? "bold" : "normal", fontFamily: "monospace" }),
+    style: new TextStyle({
+      fontSize: size,
+      fill,
+      fontWeight: bold ? "bold" : "normal",
+      fontFamily: "monospace",
+    }),
   });
   t.position.set(x, y);
   container.addChild(t);
@@ -149,26 +181,68 @@ function drawOppSlot(
   container.addChild(g);
 
   const initials = p.name.slice(0, 2).toUpperCase();
-  addText(container, initials, x + 14, y + 16, 13, `#${avatarCol.toString(16).padStart(6, "0")}`, true);
+  addText(
+    container,
+    initials,
+    x + 14,
+    y + 16,
+    13,
+    `#${avatarCol.toString(16).padStart(6, "0")}`,
+    true,
+  );
 
   // Name
   const displayName = p.name.length > 11 ? p.name.slice(0, 10) + "…" : p.name;
-  addText(container, displayName, x + 54, y + 7, 10, isActive ? "#ffd700" : "#ccccee", true);
+  addText(
+    container,
+    displayName,
+    x + 54,
+    y + 7,
+    10,
+    isActive ? "#ffd700" : "#ccccee",
+    true,
+  );
 
   // Phase-specific status
   if (state.phase === "lobby") {
     const rdy = (state.ready_players ?? []).includes(p.id);
-    addText(container, rdy ? "✔ READY" : "waiting…", x + 54, y + 26, 9,
-      rdy ? "#4ade80" : "#555577");
+    addText(
+      container,
+      rdy ? "✔ READY" : "waiting…",
+      x + 54,
+      y + 26,
+      9,
+      rdy ? "#4ade80" : "#555577",
+    );
   } else if (state.phase === "playing") {
     const cnt = p.hand.length;
-    addText(container, p.finished ? "FINISHED" : `${cnt} card${cnt !== 1 ? "s" : ""}`,
-      x + 54, y + 26, 9, p.finished ? "#4ade80" : "#aaddaa");
-    if (isActive) addText(container, "▶ TURN", x + 54, y + 42, 8, "#ffd700", true);
+    addText(
+      container,
+      p.finished ? "FINISHED" : `${cnt} card${cnt !== 1 ? "s" : ""}`,
+      x + 54,
+      y + 26,
+      9,
+      p.finished ? "#4ade80" : "#aaddaa",
+    );
+    if (isActive)
+      addText(container, "▶ TURN", x + 54, y + 42, 8, "#ffd700", true);
   } else {
     const rank = p.finish_rank;
-    const col = rank === 1 ? "#ffd700" : rank === (state.players.length) ? "#f87171" : "#aaaadd";
-    addText(container, rank ? placeLabel(rank) : "?", x + 54, y + 26, 10, col, true);
+    const col =
+      rank === 1
+        ? "#ffd700"
+        : rank === state.players.length
+          ? "#f87171"
+          : "#aaaadd";
+    addText(
+      container,
+      rank ? placeLabel(rank) : "?",
+      x + 54,
+      y + 26,
+      10,
+      col,
+      true,
+    );
   }
 
   // Card count mini-badge (playing phase)
@@ -201,24 +275,71 @@ function drawLocalSlot(
   container.addChild(g);
 
   const initials = p.name.slice(0, 2).toUpperCase();
-  addText(container, initials, x + 14, y + 14, 13, `#${avatarCol.toString(16).padStart(6, "0")}`, true);
+  addText(
+    container,
+    initials,
+    x + 14,
+    y + 14,
+    13,
+    `#${avatarCol.toString(16).padStart(6, "0")}`,
+    true,
+  );
 
   // Name
   const displayName = p.name.length > 13 ? p.name.slice(0, 12) + "…" : p.name;
-  addText(container, displayName + " (You)", x + 54, y + 8, 10, isActive ? "#ffd700" : "#eeeeff", true);
+  addText(
+    container,
+    displayName + " (You)",
+    x + 54,
+    y + 8,
+    10,
+    isActive ? "#ffd700" : "#eeeeff",
+    true,
+  );
 
   if (state.phase === "lobby") {
     const rdy = (state.ready_players ?? []).includes(p.id);
-    addText(container, rdy ? "✔  READY" : "press READY to start", x + 54, y + 27, 9,
-      rdy ? "#4ade80" : "#888899");
+    addText(
+      container,
+      rdy ? "✔  READY" : "press READY to start",
+      x + 54,
+      y + 27,
+      9,
+      rdy ? "#4ade80" : "#888899",
+    );
   } else if (state.phase === "playing") {
     const cnt = p.hand.length;
-    const status = p.finished ? "FINISHED" : (isActive ? "▶ YOUR TURN" : `${cnt} card${cnt !== 1 ? "s" : ""}`);
-    addText(container, status, x + 54, y + 27, 9, p.finished ? "#4ade80" : isActive ? "#ffd700" : "#aaddaa", isActive);
+    const status = p.finished
+      ? "FINISHED"
+      : isActive
+        ? "▶ YOUR TURN"
+        : `${cnt} card${cnt !== 1 ? "s" : ""}`;
+    addText(
+      container,
+      status,
+      x + 54,
+      y + 27,
+      9,
+      p.finished ? "#4ade80" : isActive ? "#ffd700" : "#aaddaa",
+      isActive,
+    );
   } else {
     const rank = p.finish_rank;
-    const col = rank === 1 ? "#ffd700" : rank === (state.players.length) ? "#f87171" : "#aaaadd";
-    addText(container, rank ? placeLabel(rank) : "?", x + 54, y + 27, 10, col, true);
+    const col =
+      rank === 1
+        ? "#ffd700"
+        : rank === state.players.length
+          ? "#f87171"
+          : "#aaaadd";
+    addText(
+      container,
+      rank ? placeLabel(rank) : "?",
+      x + 54,
+      y + 27,
+      10,
+      col,
+      true,
+    );
   }
 }
 
@@ -231,9 +352,9 @@ export const createBigTwoMpScene = (
   const root = new Container() as SceneContainer;
   root.label = "big-two-mp-scene";
 
-  const roomId     = params.roomId as string;
-  const userId     = params.userId as string;
-  const isHost     = (params.isHost as boolean) ?? false;
+  const roomId = params.roomId as string;
+  const userId = params.userId as string;
+  const isHost = (params.isHost as boolean) ?? false;
 
   let gs: BigTwoMpState | null = null;
   let myHandSorted: CardData[] = [];
@@ -249,7 +370,7 @@ export const createBigTwoMpScene = (
   const glowInterval = setInterval(() => {
     glowAlpha = Math.max(0.1, Math.min(0.95, glowAlpha + glowDir * 0.035));
     if (glowAlpha >= 0.95) glowDir = -1;
-    if (glowAlpha <= 0.1)  glowDir =  1;
+    if (glowAlpha <= 0.1) glowDir = 1;
     glowGraphics.alpha = glowAlpha;
   }, 16);
 
@@ -258,9 +379,9 @@ export const createBigTwoMpScene = (
 
   const slotsLayer = new Container();
   const comboLayer = new Container();
-  const handLayer  = new Container();
-  const animLayer  = new Container();
-  const glowLayer  = new Container();
+  const handLayer = new Container();
+  const animLayer = new Container();
+  const glowLayer = new Container();
 
   root.addChild(slotsLayer, comboLayer, handLayer, animLayer, glowLayer);
   glowLayer.addChild(glowGraphics);
@@ -281,8 +402,8 @@ export const createBigTwoMpScene = (
   `;
   document.getElementById("pixi-container")!.appendChild(hud);
 
-  const statusEl  = hud.querySelector<HTMLDivElement>("#bt-mp-status")!;
-  const hintEl    = hud.querySelector<HTMLDivElement>("#bt-mp-hint")!;
+  const statusEl = hud.querySelector<HTMLDivElement>("#bt-mp-status")!;
+  const hintEl = hud.querySelector<HTMLDivElement>("#bt-mp-hint")!;
   const actionsEl = hud.querySelector<HTMLDivElement>("#bt-mp-actions")!;
 
   hud.querySelector("#bt-mp-back")!.addEventListener("click", async () => {
@@ -323,7 +444,9 @@ export const createBigTwoMpScene = (
     actionsEl.style.display = "flex";
     if (isHost) {
       actionsEl.innerHTML = `<button class="hud-btn bt-ready-btn" id="bt-mp-again">▶ PLAY AGAIN</button>`;
-      actionsEl.querySelector("#bt-mp-again")!.addEventListener("click", () => void resetToLobby());
+      actionsEl
+        .querySelector("#bt-mp-again")!
+        .addEventListener("click", () => void resetToLobby());
     } else {
       actionsEl.innerHTML = `<span style="color:#6b7280;font-size:12px">Waiting for host…</span>`;
     }
@@ -340,7 +463,8 @@ export const createBigTwoMpScene = (
     glowGraphics.clear();
 
     const slots = buildLayout(state.players, userId);
-    const currentPlayer = state.phase === "playing" ? state.current_player : null;
+    const currentPlayer =
+      state.phase === "playing" ? state.current_player : null;
 
     for (const sd of slots) {
       const isActive = sd.player.id === currentPlayer;
@@ -352,9 +476,11 @@ export const createBigTwoMpScene = (
 
       if (isActive) {
         // Glow rect for current turn — alpha animated via setInterval
-        glowGraphics.rect(sd.x - 4, sd.y - 4, sd.w + 8, sd.h + 8)
+        glowGraphics
+          .rect(sd.x - 4, sd.y - 4, sd.w + 8, sd.h + 8)
           .stroke({ color: C_GOLD, width: 3 });
-        glowGraphics.rect(sd.x - 7, sd.y - 7, sd.w + 14, sd.h + 14)
+        glowGraphics
+          .rect(sd.x - 7, sd.y - 7, sd.w + 14, sd.h + 14)
           .stroke({ color: C_GOLD, width: 1 });
       }
     }
@@ -368,14 +494,23 @@ export const createBigTwoMpScene = (
       // Lead placeholder
       const bg2 = new Graphics();
       bg2.rect(SCREEN_WIDTH / 2 - 115, COMBO_Y - 30, 230, 62).fill(0x05050f);
-      bg2.rect(SCREEN_WIDTH / 2 - 115, COMBO_Y - 30, 230, 62).stroke({ color: C_MUTED, width: 1 });
+      bg2
+        .rect(SCREEN_WIDTH / 2 - 115, COMBO_Y - 30, 230, 62)
+        .stroke({ color: C_MUTED, width: 1 });
       comboLayer.addChild(bg2);
-      addText(comboLayer, "LEAD THE ROUND", SCREEN_WIDTH / 2 - 80, COMBO_Y - 8, 10, "#404460");
+      addText(
+        comboLayer,
+        "LEAD THE ROUND",
+        SCREEN_WIDTH / 2 - 80,
+        COMBO_Y - 8,
+        10,
+        "#404460",
+      );
       return;
     }
 
     const cards = state.last_combo.cards;
-    const GAP   = Math.min(28, 560 / Math.max(cards.length, 1));
+    const GAP = Math.min(28, 560 / Math.max(cards.length, 1));
     const totalW = (cards.length - 1) * GAP + CARD_WIDTH;
     const startX = SCREEN_WIDTH / 2 - totalW / 2;
 
@@ -400,16 +535,19 @@ export const createBigTwoMpScene = (
     clearLayer(handLayer);
     selectedIndices.clear();
 
-    const myPlayer = state.players.find(p => p.id === userId);
+    const myPlayer = state.players.find((p) => p.id === userId);
     if (!myPlayer || myPlayer.finished || state.phase !== "playing") return;
 
     const isMyTurn = state.current_player === userId;
     const hand = sortHand(myPlayer.hand);
     myHandSorted = hand;
 
-    const CARD_OFF = Math.min(38, Math.floor((SCREEN_WIDTH - 120) / Math.max(hand.length, 1)));
-    const totalW   = (hand.length - 1) * CARD_OFF + CARD_WIDTH;
-    const startX   = SCREEN_WIDTH / 2 - totalW / 2;
+    const CARD_OFF = Math.min(
+      38,
+      Math.floor((SCREEN_WIDTH - 120) / Math.max(hand.length, 1)),
+    );
+    const totalW = (hand.length - 1) * CARD_OFF + CARD_WIDTH;
+    const startX = SCREEN_WIDTH / 2 - totalW / 2;
 
     hand.forEach((card, i) => {
       const c = createCard({ ...card, isFaceUp: true });
@@ -442,17 +580,36 @@ export const createBigTwoMpScene = (
     if (!playBtn) return;
 
     const isMyTurn = state.current_player === userId;
-    if (!isMyTurn) { playBtn.disabled = true; if (passBtn) passBtn.disabled = true; return; }
+    if (!isMyTurn) {
+      playBtn.disabled = true;
+      if (passBtn) passBtn.disabled = true;
+      return;
+    }
 
     if (passBtn) passBtn.disabled = !state.last_combo || state.is_first_move;
 
-    if (selectedIndices.size === 0) { playBtn.disabled = true; return; }
-    const selected = [...selectedIndices].map(i => myHandSorted[i]);
+    if (selectedIndices.size === 0) {
+      playBtn.disabled = true;
+      return;
+    }
+    const selected = [...selectedIndices].map((i) => myHandSorted[i]);
     const combo = detectCombo(selected);
-    if (!combo) { playBtn.disabled = true; return; }
+    if (!combo) {
+      playBtn.disabled = true;
+      return;
+    }
 
-    if (state.is_first_move)    { playBtn.disabled = !isValidFirstPlay(combo, state.start_card ?? { rank: "3", suit: "spades", isFaceUp: true }); return; }
-    if (!state.last_combo)       { playBtn.disabled = false; return; }
+    if (state.is_first_move) {
+      playBtn.disabled = !isValidFirstPlay(
+        combo,
+        state.start_card ?? { rank: "3", suit: "spades", isFaceUp: true },
+      );
+      return;
+    }
+    if (!state.last_combo) {
+      playBtn.disabled = false;
+      return;
+    }
     playBtn.disabled = !canBeat(combo, state.last_combo);
   }
 
@@ -469,7 +626,9 @@ export const createBigTwoMpScene = (
             ? `Beat: ${comboLabel(state.last_combo)}`
             : "Your turn — play anything";
       } else {
-        const currentPlayer = state.players.find(p => p.id === state.current_player);
+        const currentPlayer = state.players.find(
+          (p) => p.id === state.current_player,
+        );
         statusEl.textContent = `Waiting for ${currentPlayer?.name ?? state.current_player}…`;
       }
     } else {
@@ -505,20 +664,25 @@ export const createBigTwoMpScene = (
   // ── Card fly animation ───────────────────────────────────────────────────
 
   function animateCardFly(indices: number[], onComplete: () => void) {
-    if (animRaf !== null) { cancelAnimationFrame(animRaf); animRaf = null; }
+    if (animRaf !== null) {
+      cancelAnimationFrame(animRaf);
+      animRaf = null;
+    }
     clearLayer(animLayer);
 
     const DURATION = 280;
-    const targetX  = SCREEN_WIDTH / 2 - CARD_WIDTH / 2;
-    const targetY  = COMBO_Y - CARD_HEIGHT / 2;
-    const startMs  = performance.now();
+    const targetX = SCREEN_WIDTH / 2 - CARD_WIDTH / 2;
+    const targetY = COMBO_Y - CARD_HEIGHT / 2;
+    const startMs = performance.now();
 
-    const clones = indices.map(i => {
+    const clones = indices.map((i) => {
       const child = handLayer.children[i] as Container | undefined;
       const startX = child ? child.x : SCREEN_WIDTH / 2;
       const startY = child ? child.y : HAND_Y;
       const g = new Graphics();
-      g.rect(0, 0, CARD_WIDTH, CARD_HEIGHT).fill(0xf8f8f8).stroke({ color: C_GOLD, width: 2 });
+      g.rect(0, 0, CARD_WIDTH, CARD_HEIGHT)
+        .fill(0xf8f8f8)
+        .stroke({ color: C_GOLD, width: 2 });
       g.position.set(startX, startY);
       animLayer.addChild(g);
       return { g, startX, startY };
@@ -549,23 +713,35 @@ export const createBigTwoMpScene = (
     if (!gs || gs.phase !== "playing") return;
     hintEl.textContent = "";
 
-    const myPlayer = gs.players.find(p => p.id === userId);
+    const myPlayer = gs.players.find((p) => p.id === userId);
     if (!myPlayer) return;
 
-    const hand    = sortHand(myPlayer.hand);
+    const hand = sortHand(myPlayer.hand);
     const indices = [...selectedIndices].sort((a, b) => a - b);
-    const selected = indices.map(i => hand[i]);
+    const selected = indices.map((i) => hand[i]);
     const combo = detectCombo(selected);
-    if (!combo) { hintEl.textContent = "Not a valid combination!"; return; }
-    if (gs.is_first_move && !isValidFirstPlay(combo, gs.start_card ?? { rank: "3", suit: "spades", isFaceUp: true })) {
+    if (!combo) {
+      hintEl.textContent = "Not a valid combination!";
+      return;
+    }
+    if (
+      gs.is_first_move &&
+      !isValidFirstPlay(
+        combo,
+        gs.start_card ?? { rank: "3", suit: "spades", isFaceUp: true },
+      )
+    ) {
       const sc = gs.start_card;
-      const label = sc && !(sc.rank === "3" && sc.suit === "spades")
-        ? `${sc.rank}${({ hearts: "♥", diamonds: "♦", clubs: "♣", spades: "♠" })[sc.suit]}`
-        : "3♠";
-      hintEl.textContent = `First play must include ${label}!`; return;
+      const label =
+        sc && !(sc.rank === "3" && sc.suit === "spades")
+          ? `${sc.rank}${{ hearts: "♥", diamonds: "♦", clubs: "♣", spades: "♠" }[sc.suit]}`
+          : "3♠";
+      hintEl.textContent = `First play must include ${label}!`;
+      return;
     }
     if (gs.last_combo && !canBeat(combo, gs.last_combo)) {
-      hintEl.textContent = `Can't beat the current ${gs.last_combo.type}!`; return;
+      hintEl.textContent = `Can't beat the current ${gs.last_combo.type}!`;
+      return;
     }
 
     const playBtn = actionsEl.querySelector<HTMLButtonElement>("#bt-mp-play");
@@ -591,10 +767,13 @@ export const createBigTwoMpScene = (
 
   const nextTurn = (state: BigTwoMpState, fromId: string): void => {
     const idx = state.players.findIndex((p: BigTwoMpPlayer) => p.id === fromId);
-    const n   = state.players.length;
+    const n = state.players.length;
     for (let i = 1; i < n; i++) {
       const next = state.players[(idx + i) % n];
-      if (!next.finished) { state.current_player = next.id; return; }
+      if (!next.finished) {
+        state.current_player = next.id;
+        return;
+      }
     }
   };
 
@@ -607,9 +786,15 @@ export const createBigTwoMpScene = (
     const action = queue.shift()!;
 
     const fresh = await fetchGameState<BigTwoMpState>(roomId);
-    if (!fresh) { processing = false; void drainQueue(); return; }
+    if (!fresh) {
+      processing = false;
+      void drainQueue();
+      return;
+    }
 
-    const state: BigTwoMpState = JSON.parse(JSON.stringify(fresh)) as BigTwoMpState;
+    const state: BigTwoMpState = JSON.parse(
+      JSON.stringify(fresh),
+    ) as BigTwoMpState;
     if (!state.ready_players) state.ready_players = [];
 
     // ── READY action ────────────────────────────────────────────────────
@@ -619,23 +804,26 @@ export const createBigTwoMpScene = (
       }
       if (state.ready_players.length >= state.players.length) {
         // All ready — deal cards and start!
-        const deck  = createBigTwoDeck();
+        const deck = createBigTwoDeck();
         const hands = dealCards(deck, state.players.length);
         state.players.forEach((p, i) => {
-          p.hand = sortHand(hands[i]).map((c: CardData) => ({ ...c, isFaceUp: true }));
-          p.finished    = false;
+          p.hand = sortHand(hands[i]).map((c: CardData) => ({
+            ...c,
+            isFaceUp: true,
+          }));
+          p.finished = false;
           p.finish_rank = null;
         });
-        const handsArr    = state.players.map(p => p.hand);
-        const firstIdx    = findThreeOfSpadesOwner(handsArr);
-        state.phase          = "playing";
+        const handsArr = state.players.map((p) => p.hand);
+        const firstIdx = findThreeOfSpadesOwner(handsArr);
+        state.phase = "playing";
         state.current_player = state.players[firstIdx].id;
-        state.is_first_move  = true;
-        state.start_card     = findStartingCard(handsArr);
-        state.last_combo     = null;
+        state.is_first_move = true;
+        state.start_card = findStartingCard(handsArr);
+        state.last_combo = null;
         state.last_played_by = null;
-        state.passed         = [];
-        state.finish_order   = [];
+        state.passed = [];
+        state.finish_order = [];
       }
       await pushGameState(roomId, state);
       processing = false;
@@ -645,20 +833,30 @@ export const createBigTwoMpScene = (
 
     // ── PASS action ─────────────────────────────────────────────────────
     if (action.action_type === "pass") {
-      if (state.phase !== "playing" || state.current_player !== action.player_name || state.is_first_move) {
-        processing = false; void drainQueue(); return;
+      if (
+        state.phase !== "playing" ||
+        state.current_player !== action.player_name ||
+        state.is_first_move
+      ) {
+        processing = false;
+        void drainQueue();
+        return;
       }
-      if (!state.passed.includes(action.player_name)) state.passed.push(action.player_name);
+      if (!state.passed.includes(action.player_name))
+        state.passed.push(action.player_name);
       nextTurn(state, action.player_name);
 
       const active = state.players.filter((p: BigTwoMpPlayer) => !p.finished);
       const allPassedExceptLast = active.every(
-        (p: BigTwoMpPlayer) => p.id === state.last_played_by || state.passed.includes(p.id),
+        (p: BigTwoMpPlayer) =>
+          p.id === state.last_played_by || state.passed.includes(p.id),
       );
       if (allPassedExceptLast && state.last_played_by) {
-        state.last_combo     = null;
-        state.passed         = [];
-        const winner = state.players.find((p: BigTwoMpPlayer) => p.id === fresh.last_played_by);
+        state.last_combo = null;
+        state.passed = [];
+        const winner = state.players.find(
+          (p: BigTwoMpPlayer) => p.id === fresh.last_played_by,
+        );
         if (winner && !winner.finished) state.current_player = winner.id;
         else nextTurn(state, state.current_player);
         state.last_played_by = null;
@@ -668,45 +866,84 @@ export const createBigTwoMpScene = (
 
     // ── PLAY action ─────────────────────────────────────────────────────
     else if (action.action_type === "play") {
-      if (state.phase !== "playing" || state.current_player !== action.player_name) {
-        processing = false; void drainQueue(); return;
+      if (
+        state.phase !== "playing" ||
+        state.current_player !== action.player_name
+      ) {
+        processing = false;
+        void drainQueue();
+        return;
       }
-      const player = state.players.find((p: BigTwoMpPlayer) => p.id === action.player_name);
-      if (!player) { processing = false; void drainQueue(); return; }
-
-      const hand     = sortHand(player.hand);
-      const idxs     = (action.payload.indices as number[]) ?? [];
-      const selected = idxs.map(i => hand[i]);
-      const combo    = detectCombo(selected);
-      if (!combo) { processing = false; void drainQueue(); return; }
-      if (state.is_first_move && !isValidFirstPlay(combo, state.start_card ?? { rank: "3", suit: "spades", isFaceUp: true })) { processing = false; void drainQueue(); return; }
-      if (!state.is_first_move && state.last_combo && !canBeat(combo, state.last_combo)) {
-        processing = false; void drainQueue(); return;
+      const player = state.players.find(
+        (p: BigTwoMpPlayer) => p.id === action.player_name,
+      );
+      if (!player) {
+        processing = false;
+        void drainQueue();
+        return;
       }
 
-      const playedVals = new Set(selected.map((c: CardData) => getCardValue(c)));
-      player.hand = hand.filter((c: CardData) => !playedVals.has(getCardValue(c)));
+      const hand = sortHand(player.hand);
+      const idxs = (action.payload.indices as number[]) ?? [];
+      const selected = idxs.map((i) => hand[i]);
+      const combo = detectCombo(selected);
+      if (!combo) {
+        processing = false;
+        void drainQueue();
+        return;
+      }
+      if (
+        state.is_first_move &&
+        !isValidFirstPlay(
+          combo,
+          state.start_card ?? { rank: "3", suit: "spades", isFaceUp: true },
+        )
+      ) {
+        processing = false;
+        void drainQueue();
+        return;
+      }
+      if (
+        !state.is_first_move &&
+        state.last_combo &&
+        !canBeat(combo, state.last_combo)
+      ) {
+        processing = false;
+        void drainQueue();
+        return;
+      }
 
-      state.last_combo     = combo;
+      const playedVals = new Set(
+        selected.map((c: CardData) => getCardValue(c)),
+      );
+      player.hand = hand.filter(
+        (c: CardData) => !playedVals.has(getCardValue(c)),
+      );
+
+      state.last_combo = combo;
       state.last_played_by = action.player_name;
-      state.passed         = [];
-      state.is_first_move  = false;
+      state.passed = [];
+      state.is_first_move = false;
 
       if (player.hand.length === 0) {
-        player.finished    = true;
+        player.finished = true;
         player.finish_rank = state.finish_order.length + 1;
         state.finish_order.push(player.id);
 
-        const remaining = state.players.filter((p: BigTwoMpPlayer) => !p.finished);
+        const remaining = state.players.filter(
+          (p: BigTwoMpPlayer) => !p.finished,
+        );
         if (remaining.length <= 1) {
           if (remaining.length === 1) {
-            remaining[0].finished    = true;
+            remaining[0].finished = true;
             remaining[0].finish_rank = state.finish_order.length + 1;
             state.finish_order.push(remaining[0].id);
           }
           state.phase = "game-over";
           await pushGameState(roomId, state);
-          processing = false; void drainQueue(); return;
+          processing = false;
+          void drainQueue();
+          return;
         }
       }
       nextTurn(state, action.player_name);
@@ -721,7 +958,7 @@ export const createBigTwoMpScene = (
 
   const initGame = async (): Promise<void> => {
     const roomPlayers = await getRoomPlayers(roomId);
-    const players: BigTwoMpPlayer[] = roomPlayers.map(rp => ({
+    const players: BigTwoMpPlayer[] = roomPlayers.map((rp) => ({
       id: rp.user_id ?? rp.player_name,
       name: rp.player_name,
       hand: [],
@@ -729,16 +966,16 @@ export const createBigTwoMpScene = (
       finish_rank: null,
     }));
     const state: BigTwoMpState = {
-      phase:         "lobby",
+      phase: "lobby",
       players,
       ready_players: [],
       current_player: "",
-      last_combo:    null,
+      last_combo: null,
       last_played_by: null,
-      passed:        [],
+      passed: [],
       is_first_move: true,
-      finish_order:  [],
-      start_card:    null,
+      finish_order: [],
+      start_card: null,
     };
     await pushGameState(roomId, state);
   };
@@ -750,15 +987,20 @@ export const createBigTwoMpScene = (
     if (!fresh) return;
     const state: BigTwoMpState = {
       ...fresh,
-      phase:          "lobby",
-      ready_players:  [],
+      phase: "lobby",
+      ready_players: [],
       current_player: "",
-      last_combo:     null,
+      last_combo: null,
       last_played_by: null,
-      passed:         [],
-      is_first_move:  true,
-      finish_order:   [],
-      players: fresh.players.map(p => ({ ...p, hand: [], finished: false, finish_rank: null })),
+      passed: [],
+      is_first_move: true,
+      finish_order: [],
+      players: fresh.players.map((p) => ({
+        ...p,
+        hand: [],
+        finished: false,
+        finish_rank: null,
+      })),
     };
     await pushGameState(roomId, state);
   };
@@ -768,11 +1010,16 @@ export const createBigTwoMpScene = (
   if (isHost) {
     cleanups.push(startHostHeartbeat(roomId));
     cleanups.push(
-      subscribeToActions(roomId, (a) => { queue.push(a); void drainQueue(); }),
+      subscribeToActions(roomId, (a) => {
+        queue.push(a);
+        void drainQueue();
+      }),
     );
     void initGame();
   } else {
-    void fetchGameState<BigTwoMpState>(roomId).then(s => { if (s) render(s); });
+    void fetchGameState<BigTwoMpState>(roomId).then((s) => {
+      if (s) render(s);
+    });
     cleanups.push(
       subscribeToRoomDeletion(roomId, () => {
         statusEl.textContent = "Host disconnected. Returning to menu…";
@@ -785,9 +1032,12 @@ export const createBigTwoMpScene = (
 
   // ── Teardown ─────────────────────────────────────────────────────────────
   root.__teardown = () => {
-    if (animRaf !== null) { cancelAnimationFrame(animRaf); animRaf = null; }
+    if (animRaf !== null) {
+      cancelAnimationFrame(animRaf);
+      animRaf = null;
+    }
     clearInterval(glowInterval);
-    cleanups.forEach(c => c());
+    cleanups.forEach((c) => c());
     hud.remove();
   };
 

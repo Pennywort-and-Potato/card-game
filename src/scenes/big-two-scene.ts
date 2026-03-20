@@ -395,7 +395,8 @@ export const createBigTwoScene = (
     finishOrder.length = 0;
     gameOver = false;
 
-    const hasThreeSpades = startCard.rank === "3" && startCard.suit === "spades";
+    const hasThreeSpades =
+      startCard.rank === "3" && startCard.suit === "spades";
     renderAll();
     msgText.text = hasThreeSpades
       ? `${players[currentPlayerIdx].name} starts (has ♠3)`
@@ -664,9 +665,10 @@ export const createBigTwoScene = (
     }
 
     if (isFirstMove && !isValidFirstPlay(combo, startCard)) {
-      const label = startCard.rank === "3" && startCard.suit === "spades"
-        ? "♠3"
-        : `${startCard.rank}${({ hearts: "♥", diamonds: "♦", clubs: "♣", spades: "♠" })[startCard.suit]}`;
+      const label =
+        startCard.rank === "3" && startCard.suit === "spades"
+          ? "♠3"
+          : `${startCard.rank}${{ hearts: "♥", diamonds: "♦", clubs: "♣", spades: "♠" }[startCard.suit]}`;
       hintEl.textContent = `First play must include the ${label}!`;
       return;
     }

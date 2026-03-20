@@ -165,8 +165,11 @@ export const createLobbyScene = (
     overlay.querySelector<HTMLButtonElement>("#lobby-join-btn")!;
   const joinStatusEl =
     overlay.querySelector<HTMLDivElement>("#lobby-join-status")!;
-  const rightContent = overlay.querySelector<HTMLDivElement>("#lobby-right-content")!;
-  const roomInfoPanel = overlay.querySelector<HTMLDivElement>("#lobby-room-info")!;
+  const rightContent = overlay.querySelector<HTMLDivElement>(
+    "#lobby-right-content",
+  )!;
+  const roomInfoPanel =
+    overlay.querySelector<HTMLDivElement>("#lobby-room-info")!;
   const roomTitleEl =
     overlay.querySelector<HTMLDivElement>("#lobby-room-title")!;
   const roomPlayersEl = overlay.querySelector<HTMLDivElement>(
