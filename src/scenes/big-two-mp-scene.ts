@@ -961,18 +961,19 @@ export const createBigTwoMpScene = (
             if (!state.finish_order.includes(id)) state.finish_order.push(id);
           }
           state.phase = "game-over";
-          await pushGameState(roomId, state);
-          // Host persists the match result for the dashboard
+          // Persist match result BEFORE pushing game-over state so the
+          // room still exists (room deletion cascades to match_results in old schema).
           const finishOrderNames = state.finish_order.map((id) => ({
             id,
             name: state.players.find((p: BigTwoMpPlayer) => p.id === id)?.name ?? id,
           }));
-          void saveMatchResult(
+          await saveMatchResult(
             roomId,
             "bigtwo",
             state.finish_order[0] ?? null,
             finishOrderNames,
-          );
+          ).catch((e: Error) => console.error("[bigtwo-mp] saveMatchResult failed:", e.message));
+          await pushGameState(roomId, state);
           processing = false;
           void drainQueue();
           return;
@@ -1028,6 +1029,7 @@ export const createBigTwoMpScene = (
       passed: [],
       is_first_move: true,
       finish_order: [],
+      thoi_hai: [],
       last_winner: fresh.finish_order[0] ?? undefined,
       players: fresh.players.map((p) => ({
         ...p,

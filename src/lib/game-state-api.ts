@@ -155,7 +155,7 @@ export const saveMatchResult = async (
   const { error } = await supabase.from("match_results").insert([
     { room_id: roomId, winner_id: winnerId, game_type: gameType, finish_order: finishOrder },
   ] as never);
-  if (error) console.error("[game-state-api] saveMatchResult:", error.message);
+  if (error) throw new Error(error.message);
 };
 
 export const fetchMatchResults = async (
