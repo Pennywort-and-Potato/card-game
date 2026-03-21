@@ -2,7 +2,7 @@ import { Assets, Container, Graphics, Text, TextStyle } from "pixi.js";
 import type { SceneContainer } from "../systems/scene-manager";
 import type { SceneManager } from "../systems/scene-manager";
 import { createCard } from "../entities/card";
-import { SCREEN_HEIGHT, SCREEN_WIDTH } from "../utils/constants";
+import { CARD_HEIGHT, CARD_WIDTH, SCREEN_HEIGHT, SCREEN_WIDTH } from "../utils/constants";
 import type { CardData, SceneParams } from "../types";
 import {
   type BigTwoCombo,
@@ -18,6 +18,66 @@ import {
   sortHand,
 } from "../systems/big-two-logic";
 
+// ── Pixel-art helpers ─────────────────────────────────────────────────────────
+const C_PANEL = 0x0c0c20;
+const C_BORDER = 0x252548;
+const C_GOLD = 0xd4af37;
+const C_MUTED = 0x555577;
+
+function pixelPanel(
+  g: Graphics,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  active: boolean,
+) {
+  const borderCol = active ? C_GOLD : C_BORDER;
+  g.rect(x, y, w, h).fill(0x02020e);
+  g.rect(x + 2, y + 2, w - 4, h - 4).fill(C_PANEL);
+  g.rect(x, y, w, h).stroke({ color: borderCol, width: 2 });
+  const ac = active ? 0xffdd55 : 0x303060;
+  for (const [cx, cy] of [
+    [x, y],
+    [x + w - 3, y],
+    [x, y + h - 3],
+    [x + w - 3, y + h - 3],
+  ]) {
+    g.rect(cx, cy, 3, 3).fill(ac);
+  }
+}
+
+function playerInitialsColor(name: string): number {
+  const hues = [0x5555ff, 0xff5577, 0x55ffaa, 0xffaa22, 0xaa55ff, 0x22ccff];
+  let h = 0;
+  for (let i = 0; i < name.length; i++)
+    h = (h * 31 + name.charCodeAt(i)) & 0xffff;
+  return hues[h % hues.length];
+}
+
+function slotAddText(
+  container: Container,
+  text: string,
+  x: number,
+  y: number,
+  size: number,
+  fill: string,
+  bold = false,
+) {
+  const t = new Text({
+    text,
+    style: new TextStyle({
+      fontSize: size,
+      fill,
+      fontWeight: bold ? "bold" : "normal",
+      fontFamily: "monospace",
+    }),
+  });
+  t.position.set(x, y);
+  container.addChild(t);
+  return t;
+}
+
 // Player seat layout: 0=human(bottom) 1=left 2=top 3=right
 interface BTPlayer {
   name: string;
@@ -26,18 +86,27 @@ interface BTPlayer {
 }
 
 const PLAYER_POSITIONS = [
-  { x: SCREEN_WIDTH / 2, y: 590 }, // bottom (human)
-  { x: 115, y: 335 }, // left AI
-  { x: SCREEN_WIDTH / 2, y: 50 }, // top AI
-  { x: 1165, y: 335 }, // right AI
+  { x: SCREEN_WIDTH / 2, y: 515 }, // bottom (human) — matches MP HAND_Y
+  { x: 115, y: 335 },              // left AI
+  { x: SCREEN_WIDTH / 2, y: 100 }, // top AI
+  { x: 1165, y: 335 },             // right AI
 ];
 
-const NAME_OFFSETS = [
-  { dx: 0, dy: -30 }, // human: label above hand
-  { dx: 0, dy: 130 }, // left: label below stack
-  { dx: 0, dy: 125 }, // top: label below spread
-  { dx: 0, dy: 130 }, // right: label below stack
+// Pixel-art slot panels (name/count/status panels for each player)
+const SLOT_PANELS = [
+  { x: 450, y: 635, w: 380, h: 52 }, // human bottom
+  { x: 4,   y: 245, w: 180, h: 80 }, // left (West)
+  { x: 460, y: 8,   w: 360, h: 80 }, // top (North)
+  { x: 1096,y: 245, w: 180, h: 80 }, // right (East)
 ];
+
+// Log constants
+const LOG_X = 8;
+const LOG_Y = 110;
+const LOG_W = 270;
+const LOG_LINE_H = 18;
+const LOG_PAD = 8;
+const LOG_MAX_LINES = 9;
 
 export const createBigTwoScene = (
   manager: SceneManager,
@@ -64,8 +133,6 @@ export const createBigTwoScene = (
   let gameOver = false;
   const selectedIndices = new Set<number>();
   const finishOrder: number[] = [];
-  // "Thới 2" (thối 2): players who emptied their hand by playing a rank-2 card.
-  // They are penalized and always placed last, regardless of when they finished.
   const thoiHaiPlayers: number[] = [];
   const pendingTimeouts: ReturnType<typeof setTimeout>[] = [];
 
@@ -74,73 +141,98 @@ export const createBigTwoScene = (
     pendingTimeouts.push(id);
   }
 
-  // ── PixiJS fixed UI ─────────────────────────────────────────────────────────
+  function clearLayer(layer: Container) {
+    while (layer.children.length > 0) layer.removeChildAt(0);
+  }
+
+  // ── PixiJS layers ──────────────────────────────────────────────────────────
   const bg = new Graphics(Assets.get("assets/bg/bg.svg"));
   bg.scale.set(SCREEN_WIDTH / 1920);
   root.addChild(bg);
 
-  const titleText = new Text({
-    text: "BIG TWO (SOUTH)",
-    style: new TextStyle({
-      fontSize: 22,
-      fill: "#d4af37",
-      fontWeight: "bold",
-      fontFamily: "Georgia, serif",
-    }),
-  });
-  titleText.anchor.set(0.5, 0);
-  titleText.position.set(SCREEN_WIDTH / 2, 8);
-  root.addChild(titleText);
-
-  const msgText = new Text({
-    text: "",
-    style: new TextStyle({ fontSize: 16, fill: "#ffdd55" }),
-  });
-  msgText.anchor.set(0.5);
-  msgText.position.set(SCREEN_WIDTH / 2, 440);
-  root.addChild(msgText);
-
+  const slotsLayer = new Container();
   const centerContainer = new Container();
   centerContainer.position.set(SCREEN_WIDTH / 2, 310);
-  root.addChild(centerContainer);
-
-  const playerAreaContainers: Container[] = players.map(() => new Container());
-  players.forEach((_, i) => {
-    playerAreaContainers[i].position.set(
-      PLAYER_POSITIONS[i].x,
-      PLAYER_POSITIONS[i].y,
-    );
-    root.addChild(playerAreaContainers[i]);
-  });
 
   const humanHandContainer = new Container();
   humanHandContainer.position.set(0, PLAYER_POSITIONS[0].y);
-  root.addChild(humanHandContainer);
 
-  const turnIndicators: Graphics[] = players.map((_, i) => {
-    const g = new Graphics();
-    const pos = PLAYER_POSITIONS[i];
-    const name_off = NAME_OFFSETS[i];
-    g.circle(pos.x + name_off.dx, pos.y + name_off.dy + 8, 50).stroke({
-      color: 0xffd700,
-      width: 3,
-      alpha: 0.85,
-    });
-    g.visible = false;
-    root.addChild(g);
-    return g;
+  // Glow animation
+  let glowAlpha = 0.5;
+  let glowDir = 1;
+  const glowGraphics = new Graphics();
+  const glowInterval = setInterval(() => {
+    glowAlpha = Math.max(0.1, Math.min(0.95, glowAlpha + glowDir * 0.035));
+    if (glowAlpha >= 0.95) glowDir = -1;
+    if (glowAlpha <= 0.1) glowDir = 1;
+    glowGraphics.alpha = glowAlpha;
+  }, 16);
+
+  const logLayer = new Container();
+
+  root.addChild(slotsLayer, centerContainer, humanHandContainer, glowGraphics, logLayer);
+
+  // Status text (centered, same as MP)
+  const statusText = new Text({
+    text: "",
+    style: new TextStyle({
+      fontSize: 14,
+      fill: "#ffffff",
+      fontFamily: "monospace",
+      align: "center",
+      dropShadow: { color: 0x000000, distance: 1, blur: 4, alpha: 0.9 },
+    }),
   });
+  statusText.anchor.set(0.5, 0.5);
+  statusText.position.set(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2);
+  root.addChild(statusText);
 
-  // ── HTML HUD overlay ─────────────────────────────────────────────────────
+  // ── Play log ───────────────────────────────────────────────────────────────
+  const playLog: string[] = [];
+
+  function renderLog() {
+    clearLayer(logLayer);
+    const lines = playLog.slice(-LOG_MAX_LINES);
+    if (lines.length === 0) return;
+    const panelH = lines.length * LOG_LINE_H + LOG_PAD * 2 + 4;
+    const panel = new Graphics();
+    panel
+      .roundRect(LOG_X, LOG_Y, LOG_W, panelH, 5)
+      .fill({ color: 0x020210, alpha: 0.78 });
+    panel
+      .roundRect(LOG_X, LOG_Y, LOG_W, panelH, 5)
+      .stroke({ color: C_BORDER, width: 1 });
+    logLayer.addChild(panel);
+    lines.forEach((line, i) => {
+      const t = new Text({
+        text: line,
+        style: new TextStyle({
+          fontSize: 11,
+          fill: "#9999bb",
+          fontFamily: "monospace",
+          wordWrap: true,
+          wordWrapWidth: LOG_W - LOG_PAD * 2,
+        }),
+      });
+      t.position.set(LOG_X + LOG_PAD, LOG_Y + LOG_PAD + 2 + i * LOG_LINE_H);
+      logLayer.addChild(t);
+    });
+  }
+
+  function addToLog(msg: string) {
+    playLog.push(msg);
+    if (playLog.length > 60) playLog.shift();
+    renderLog();
+  }
+
+  // ── HTML HUD ───────────────────────────────────────────────────────────────
   const hud = document.createElement("div");
   hud.className = "game-hud";
   hud.innerHTML = `
     <div class="hud-topbar">
       <button class="hud-back-btn" id="tl-back">← Menu</button>
-      <span class="hud-title">BIG TWO</span>
       <div style="width:90px"></div>
     </div>
-    <div class="hud-status" id="tl-status"></div>
     <div class="hud-spacer"></div>
     <div style="text-align:center;font-size:13px;color:#f87171;padding:0 14px 4px;pointer-events:none" id="tl-hint"></div>
     <div class="hud-actions" id="tl-actions">
@@ -150,7 +242,6 @@ export const createBigTwoScene = (
   `;
   document.getElementById("pixi-container")!.appendChild(hud);
 
-  const statusEl = hud.querySelector<HTMLDivElement>("#tl-status")!;
   const hintEl = hud.querySelector<HTMLDivElement>("#tl-hint")!;
   const playBtnEl = hud.querySelector<HTMLButtonElement>("#tl-play")!;
   const passBtnEl = hud.querySelector<HTMLButtonElement>("#tl-pass")!;
@@ -167,7 +258,7 @@ export const createBigTwoScene = (
     if (hand.length === 0) return;
 
     const GAP = Math.min(32, (SCREEN_WIDTH - 120) / Math.max(hand.length, 1));
-    const totalW = (hand.length - 1) * GAP + 80;
+    const totalW = (hand.length - 1) * GAP + CARD_WIDTH;
     const startX = SCREEN_WIDTH / 2 - totalW / 2;
 
     hand.forEach((cardData, i) => {
@@ -178,7 +269,7 @@ export const createBigTwoScene = (
       if (selectedIndices.has(i)) {
         const glow = new Graphics();
         glow
-          .roundRect(-3, -3, 86, 118, 7)
+          .roundRect(-3, -3, CARD_WIDTH + 6, CARD_HEIGHT + 6, 7)
           .fill({ color: 0xffd700, alpha: 0.25 });
         sprite.addChildAt(glow, 0);
       }
@@ -198,85 +289,17 @@ export const createBigTwoScene = (
     });
   }
 
-  function renderAIHand(playerIdx: number) {
-    const container = playerAreaContainers[playerIdx];
-    container.removeChildren();
-    const count = players[playerIdx].hand.length;
-    const pos = PLAYER_POSITIONS[playerIdx];
-    const nameOff = NAME_OFFSETS[playerIdx];
-
-    if (playerIdx === 2) {
-      const GAP = Math.min(20, 600 / Math.max(count, 1));
-      const totalW = (count - 1) * GAP + 80;
-      const startX = -totalW / 2;
-      for (let i = 0; i < count; i++) {
-        const sprite = createCard({
-          rank: "3",
-          suit: "spades",
-          isFaceUp: false,
-        });
-        sprite.x = startX + i * GAP;
-        sprite.y = 0;
-        container.addChild(sprite);
-      }
-    } else {
-      const show = Math.min(5, count);
-      for (let i = 0; i < show; i++) {
-        const sprite = createCard({
-          rank: "3",
-          suit: "spades",
-          isFaceUp: false,
-        });
-        sprite.x = i * 4 - (show * 4) / 2;
-        sprite.y = i * 4;
-        container.addChild(sprite);
-      }
-    }
-
-    const place = finishOrder.indexOf(playerIdx);
-    const nameLabel = new Text({
-      text:
-        place >= 0
-          ? `${players[playerIdx].name}  ${placeLabel(place + 1)}`
-          : players[playerIdx].name,
-      style: new TextStyle({
-        fontSize: 15,
-        fill: place === 0 ? "#ffd700" : place > 0 ? "#aaaaff" : "#ffffff",
-        fontWeight: "bold",
-      }),
-    });
-    nameLabel.anchor.set(0.5, 0);
-    nameLabel.position.set(nameOff.dx, nameOff.dy);
-    container.addChild(nameLabel);
-
-    if (place < 0) {
-      const countLabel = new Text({
-        text: `${count} card${count !== 1 ? "s" : ""}`,
-        style: new TextStyle({ fontSize: 13, fill: "#aaddaa" }),
-      });
-      countLabel.anchor.set(0.5, 0);
-      countLabel.position.set(nameOff.dx, nameOff.dy + 18);
-      container.addChild(countLabel);
-    }
-
-    turnIndicators[playerIdx].position.set(
-      pos.x + nameOff.dx,
-      pos.y + nameOff.dy + 8,
-    );
-  }
 
   function renderCenter() {
     centerContainer.removeChildren();
 
     if (!currentCombo) {
-      const bg2 = new Graphics();
-      bg2
-        .roundRect(-110, -36, 220, 72, 10)
-        .stroke({ color: 0x557755, width: 1 });
-      centerContainer.addChild(bg2);
+      const outline = new Graphics();
+      outline.roundRect(-110, -36, 220, 72, 10).stroke({ color: C_MUTED, width: 1 });
+      centerContainer.addChild(outline);
       const placeholder = new Text({
         text: "Lead the round",
-        style: new TextStyle({ fontSize: 15, fill: "#668866" }),
+        style: new TextStyle({ fontSize: 15, fill: "#668866", fontFamily: "monospace" }),
       });
       placeholder.anchor.set(0.5);
       centerContainer.addChild(placeholder);
@@ -285,7 +308,7 @@ export const createBigTwoScene = (
 
     const cards = currentCombo.cards;
     const GAP = Math.min(24, 560 / Math.max(cards.length, 1));
-    const totalW = (cards.length - 1) * GAP + 80;
+    const totalW = (cards.length - 1) * GAP + CARD_WIDTH;
     const startX = -totalW / 2;
     cards.forEach((cardData, i) => {
       const sprite = createCard({ ...cardData, isFaceUp: true });
@@ -293,64 +316,88 @@ export const createBigTwoScene = (
       sprite.y = -56;
       centerContainer.addChild(sprite);
     });
-
-    const playedByLabel = new Text({
-      text: `${players[lastPlayedBy].name}: ${comboLabel(currentCombo)}`,
-      style: new TextStyle({ fontSize: 13, fill: "#cccccc" }),
-    });
-    playedByLabel.anchor.set(0.5, 0);
-    playedByLabel.y = 62;
-    centerContainer.addChild(playedByLabel);
   }
 
-  function renderHumanArea() {
-    const container = playerAreaContainers[0];
-    container.removeChildren();
-    const count = players[0].hand.length;
-    const place = finishOrder.indexOf(0);
-    const nameLabel = new Text({
-      text: place >= 0 ? `You  ${placeLabel(place + 1)}` : "You",
-      style: new TextStyle({
-        fontSize: 15,
-        fill: place === 0 ? "#ffd700" : place > 0 ? "#aaaaff" : "#ffffff",
-        fontWeight: "bold",
-      }),
-    });
-    nameLabel.anchor.set(0.5, 0);
-    nameLabel.position.set(NAME_OFFSETS[0].dx, NAME_OFFSETS[0].dy);
-    container.addChild(nameLabel);
+  function renderPlayerSlots() {
+    clearLayer(slotsLayer);
+    glowGraphics.clear();
 
-    if (place < 0) {
-      const countLabel = new Text({
-        text: `${count} card${count !== 1 ? "s" : ""}`,
-        style: new TextStyle({ fontSize: 13, fill: "#aaddaa" }),
-      });
-      countLabel.anchor.set(0.5, 0);
-      countLabel.position.set(NAME_OFFSETS[0].dx, NAME_OFFSETS[0].dy + 18);
-      container.addChild(countLabel);
+    SLOT_PANELS.forEach((slot, i) => {
+      const player = players[i];
+      const isActive = i === currentPlayerIdx && !gameOver;
+      const place = finishOrder.indexOf(i);
 
-      if (currentPlayerIdx === 0 && !gameOver) {
-        const scLabel =
-          startCard.rank === "3" && startCard.suit === "spades"
-            ? "♠3"
-            : `${startCard.rank}${{ hearts: "♥", diamonds: "♦", clubs: "♣", spades: "♠" }[startCard.suit]}`;
-        const hint = new Text({
-          text: isFirstMove
-            ? `First move must include ${scLabel}`
-            : "Select cards, then Play",
-          style: new TextStyle({ fontSize: 12, fill: "#88aa88" }),
-        });
-        hint.anchor.set(0.5, 0);
-        hint.position.set(NAME_OFFSETS[0].dx, NAME_OFFSETS[0].dy + 36);
-        container.addChild(hint);
+      const g = new Graphics();
+      pixelPanel(g, slot.x, slot.y, slot.w, slot.h, isActive);
+
+      // Avatar (40×40)
+      const col = playerInitialsColor(player.name);
+      g.rect(slot.x + 6, slot.y + 6, 40, 40).fill(0x080820);
+      g.rect(slot.x + 6, slot.y + 6, 40, 40).stroke({ color: col, width: 1 });
+      slotsLayer.addChild(g);
+
+      const initials = player.name.slice(0, 2).toUpperCase();
+      slotAddText(
+        slotsLayer,
+        initials,
+        slot.x + 14,
+        slot.y + 14,
+        13,
+        `#${col.toString(16).padStart(6, "0")}`,
+        true,
+      );
+
+      // Name
+      const displayName =
+        player.name.length > 11 ? player.name.slice(0, 10) + "…" : player.name;
+      const nameLabel = i === 0 ? displayName + " (You)" : displayName;
+      slotAddText(
+        slotsLayer,
+        nameLabel,
+        slot.x + 54,
+        slot.y + 7,
+        10,
+        isActive ? "#ffd700" : "#ccccee",
+        true,
+      );
+
+      // Status / card count
+      let statusStr: string;
+      let statusColor: string;
+      if (place >= 0) {
+        statusStr = placeLabel(place + 1);
+        statusColor = place === 0 ? "#ffd700" : "#aaaadd";
+      } else {
+        const cnt = player.hand.length;
+        statusStr = isActive
+          ? i === 0
+            ? "▶ YOUR TURN"
+            : "▶ TURN"
+          : `${cnt} card${cnt !== 1 ? "s" : ""}`;
+        statusColor = isActive ? "#ffd700" : "#aaddaa";
       }
-    }
-  }
+      slotAddText(slotsLayer, statusStr, slot.x + 54, slot.y + 26, 9, statusColor, isActive);
 
-  function updateTurnIndicators() {
-    for (let i = 0; i < 4; i++) {
-      turnIndicators[i].visible = i === currentPlayerIdx && !gameOver;
-    }
+      // Card mini-bars
+      if (place < 0 && player.hand.length > 0) {
+        const cnt = player.hand.length;
+        for (let j = 0; j < Math.min(cnt, 8); j++) {
+          const bar = new Graphics();
+          bar.rect(slot.x + 7 + j * 7, slot.y + slot.h - 12, 6, 8).fill(0x1a1a6a);
+          slotsLayer.addChild(bar);
+        }
+      }
+
+      // Glow for active player
+      if (isActive) {
+        glowGraphics
+          .rect(slot.x - 4, slot.y - 4, slot.w + 8, slot.h + 8)
+          .stroke({ color: C_GOLD, width: 3 });
+        glowGraphics
+          .rect(slot.x - 7, slot.y - 7, slot.w + 14, slot.h + 14)
+          .stroke({ color: C_GOLD, width: 1 });
+      }
+    });
   }
 
   function updateHudButtons() {
@@ -361,23 +408,19 @@ export const createBigTwoScene = (
 
   function updateHudStatus() {
     if (gameOver) {
-      statusEl.textContent = "";
+      statusText.text = "";
       return;
     }
     const name = players[currentPlayerIdx].name;
-    if (currentCombo) {
-      statusEl.textContent = `${name}'s turn — beat the ${currentCombo.type}`;
-    } else {
-      statusEl.textContent = `${name}'s turn — lead the round`;
-    }
+    statusText.text = currentCombo
+      ? `${name}'s turn — beat the ${currentCombo.type}`
+      : `${name}'s turn — lead the round`;
   }
 
   function renderAll() {
     renderHumanHand();
-    renderHumanArea();
-    for (let i = 1; i <= 3; i++) renderAIHand(i);
     renderCenter();
-    updateTurnIndicators();
+    renderPlayerSlots();
     updateHudButtons();
     updateHudStatus();
   }
@@ -393,7 +436,6 @@ export const createBigTwoScene = (
     startCard = findStartingCard(hands);
     if (forcedFirstPlayer !== undefined) {
       currentPlayerIdx = forcedFirstPlayer;
-      // Winner of the previous round starts freely — no start-card constraint.
       isFirstMove = false;
     } else {
       currentPlayerIdx = findThreeOfSpadesOwner(hands);
@@ -407,22 +449,22 @@ export const createBigTwoScene = (
     gameOver = false;
 
     renderAll();
-    msgText.text =
+    const starterName = players[currentPlayerIdx].name;
+    addToLog(
       forcedFirstPlayer !== undefined
-        ? `${players[currentPlayerIdx].name} starts (last winner)`
+        ? `${starterName} starts (last winner)`
         : startCard.rank === "3" && startCard.suit === "spades"
-          ? `${players[currentPlayerIdx].name} starts (has ♠3)`
-          : `${players[currentPlayerIdx].name} starts (lowest card)`;
+          ? `${starterName} starts (has ♠3)`
+          : `${starterName} starts (lowest card)`,
+    );
     beginTurn();
   }
 
   function beginTurn() {
     if (gameOver) return;
-
     updateHudButtons();
     updateHudStatus();
-    updateTurnIndicators();
-
+    renderPlayerSlots();
     if (currentPlayerIdx !== 0) {
       addTimeout(doAITurn, 1300);
     }
@@ -451,25 +493,15 @@ export const createBigTwoScene = (
     passedInRound.clear();
     isFirstMove = false;
 
-    if (pIdx !== 0) {
-      msgText.text = `${player.name} played ${comboLabel(combo)}`;
-    } else {
-      msgText.text = "";
-    }
-
     if (player.hand.length === 0) {
-      // "Thới 2" rule: if the final play contains any rank-2 card, the player
-      // is penalized — they do NOT win, but are placed last instead.
       if (combo.cards.some((c) => c.rank === "2")) {
         thoiHaiPlayers.push(pIdx);
-        msgText.text = `${player.name} THỚI 2 — goes last!`;
+        addToLog(`${player.name} THỚI 2 — goes last!`);
       } else {
         finishOrder.push(pIdx);
-        const place = finishOrder.length;
-        msgText.text = `${player.name} finished ${placeLabel(place)}!`;
+        addToLog(`${player.name} finished ${placeLabel(finishOrder.length)}!`);
       }
 
-      // Count players who still have cards (thới 2 player's hand is now 0, correctly excluded)
       const remaining = players.filter((p) => p.hand.length > 0).length;
       renderAll();
 
@@ -483,12 +515,12 @@ export const createBigTwoScene = (
       }
 
       addTimeout(() => {
-        msgText.text = "";
         startNewRoundAfterFinish(pIdx);
       }, 1600);
       return;
     }
 
+    addToLog(`${player.name} played ${comboLabel(combo)}`);
     renderAll();
     advanceTurn();
   }
@@ -496,11 +528,7 @@ export const createBigTwoScene = (
   function executePass() {
     const pIdx = currentPlayerIdx;
     passedInRound.add(pIdx);
-
-    if (pIdx !== 0) {
-      msgText.text = `${players[pIdx].name} passed`;
-    }
-
+    addToLog(`${players[pIdx].name} passed`);
     advanceTurn();
   }
 
@@ -534,15 +562,9 @@ export const createBigTwoScene = (
     currentCombo = null;
     passedInRound.clear();
     selectedIndices.clear();
-
-    const winnerName = players[lastPlayedBy].name;
-    msgText.text = `${winnerName} wins the round!`;
-
+    addToLog(`${players[lastPlayedBy].name} wins the round!`);
     renderAll();
-    addTimeout(() => {
-      msgText.text = "";
-      beginTurn();
-    }, 1600);
+    addTimeout(() => beginTurn(), 1600);
   }
 
   function startNewRoundAfterFinish(finishedIdx: number) {
@@ -568,18 +590,14 @@ export const createBigTwoScene = (
   }
 
   function showGameEnd() {
-    // Thới 2 players always go last — append them to finishOrder now
     for (const pIdx of thoiHaiPlayers) {
       if (!finishOrder.includes(pIdx)) finishOrder.push(pIdx);
     }
-
     gameOver = true;
     renderAll();
 
     const overlay = new Graphics();
-    overlay
-      .rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
-      .fill({ color: 0x000000, alpha: 0.78 });
+    overlay.rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT).fill({ color: 0x000000, alpha: 0.78 });
     root.addChild(overlay);
 
     const titleEl = new Text({
@@ -607,11 +625,7 @@ export const createBigTwoScene = (
 
       const rankText = new Text({
         text: placeLabel(rank + 1),
-        style: new TextStyle({
-          fontSize: 22,
-          fontWeight: "bold",
-          fill: rowColors[rank],
-        }),
+        style: new TextStyle({ fontSize: 22, fontWeight: "bold", fill: rowColors[rank] }),
       });
       rankText.anchor.set(0, 0.5);
       rankText.position.set(SCREEN_WIDTH / 2 - 260, y);
@@ -625,7 +639,6 @@ export const createBigTwoScene = (
       nameEl.position.set(SCREEN_WIDTH / 2 - 60, y);
       root.addChild(nameEl);
 
-      // Show thới 2 penalty badge for any player who triggered the rule
       if (thoiHaiPlayers.includes(pIdx)) {
         const pen = new Text({
           text: "💀 Thới 2 penalty!",
@@ -635,7 +648,6 @@ export const createBigTwoScene = (
         pen.position.set(SCREEN_WIDTH / 2 + 260, y);
         root.addChild(pen);
       } else if (rank === finishOrder.length - 1 && !thoiHaiPlayers.includes(pIdx)) {
-        // Normal last-place penalty indicators
         const hand = players[pIdx].hand;
         const penaltyText =
           hand.length === 2
@@ -660,7 +672,6 @@ export const createBigTwoScene = (
 
     const fixedChildCount = root.children.length;
 
-    // Use HUD actions area for game-end buttons
     hud.querySelector("#tl-actions")!.innerHTML = `
       <button class="hud-btn hud-btn-green" id="tl-again">Play Again</button>
       <button class="hud-btn hud-btn-grey" id="tl-menu">Main Menu</button>
@@ -687,12 +698,8 @@ export const createBigTwoScene = (
   function rewireButtons() {
     const pb = hud.querySelector<HTMLButtonElement>("#tl-play");
     const psb = hud.querySelector<HTMLButtonElement>("#tl-pass");
-    if (pb) {
-      pb.addEventListener("click", onPlay);
-    }
-    if (psb) {
-      psb.addEventListener("click", onPass);
-    }
+    if (pb) pb.addEventListener("click", onPlay);
+    if (psb) psb.addEventListener("click", onPass);
   }
 
   function onPlay() {
@@ -709,7 +716,6 @@ export const createBigTwoScene = (
       hintEl.textContent = "That's not a valid combination!";
       return;
     }
-
     if (isFirstMove && !isValidFirstPlay(combo, startCard)) {
       const label =
         startCard.rank === "3" && startCard.suit === "spades"
@@ -718,7 +724,6 @@ export const createBigTwoScene = (
       hintEl.textContent = `First play must include the ${label}!`;
       return;
     }
-
     if (currentCombo && !canBeat(combo, currentCombo)) {
       hintEl.textContent = `Can't beat the current ${currentCombo.type}!`;
       return;
@@ -741,12 +746,11 @@ export const createBigTwoScene = (
   }
 
   rewireButtons();
-
-  // ── Init ───────────────────────────────────────────────────────────────────
   dealAndStart();
 
   root.__teardown = () => {
     pendingTimeouts.forEach(clearTimeout);
+    clearInterval(glowInterval);
     hud.remove();
   };
 
