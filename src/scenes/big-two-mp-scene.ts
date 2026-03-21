@@ -2,7 +2,7 @@ import { Assets, Container, Graphics, Text, TextStyle } from "pixi.js";
 import type { SceneContainer, SceneManager } from "../systems/scene-manager";
 import type { CardData, SceneParams } from "../types";
 import { createCard } from "../entities/card";
-import { CARD_HEIGHT, CARD_WIDTH, SCREEN_WIDTH } from "../utils/constants";
+import { CARD_HEIGHT, CARD_WIDTH, SCREEN_HEIGHT, SCREEN_WIDTH } from "../utils/constants";
 import {
   canBeat,
   comboLabel,
@@ -383,8 +383,74 @@ export const createBigTwoMpScene = (
   const animLayer = new Container();
   const glowLayer = new Container();
 
-  root.addChild(slotsLayer, comboLayer, handLayer, animLayer, glowLayer);
+  const logLayer = new Container();
+
+  root.addChild(slotsLayer, comboLayer, handLayer, animLayer, glowLayer, logLayer);
   glowLayer.addChild(glowGraphics);
+
+  // ── PixiJS status text (top-center) ──────────────────────────────────────
+  const statusText = new Text({
+    text: "",
+    style: new TextStyle({
+      fontSize: 14,
+      fill: "#ffffff",
+      fontFamily: "monospace",
+      align: "center",
+      dropShadow: { color: 0x000000, distance: 1, blur: 4, alpha: 0.9 },
+    }),
+  });
+  statusText.anchor.set(0.5, 0.5);
+  statusText.position.set(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2);
+  root.addChild(statusText);
+
+  // ── PixiJS play log ───────────────────────────────────────────────────────
+  // Safe zone: x=8 y=110 h=180 clears all opponent slots in every config.
+  // (3-player left slot is at x=4 y=296, so we end at y=290)
+  const LOG_X = 8;
+  const LOG_Y = 110;
+  const LOG_W = 270;
+  const LOG_LINE_H = 18;
+  const LOG_PAD = 8;
+  const LOG_MAX_LINES = 9;
+
+  const playLog: string[] = [];
+  let prevCurrentPlayer: string | null | undefined = undefined;
+  let prevLastPlayedBy: string | null | undefined = undefined;
+
+  function renderLog() {
+    clearLayer(logLayer);
+    const lines = playLog.slice(-LOG_MAX_LINES);
+    if (lines.length === 0) return;
+    const panelH = lines.length * LOG_LINE_H + LOG_PAD * 2 + 4;
+    const panel = new Graphics();
+    panel
+      .roundRect(LOG_X, LOG_Y, LOG_W, panelH, 5)
+      .fill({ color: 0x020210, alpha: 0.78 });
+    panel
+      .roundRect(LOG_X, LOG_Y, LOG_W, panelH, 5)
+      .stroke({ color: 0x252548, width: 1 });
+    logLayer.addChild(panel);
+    lines.forEach((line, i) => {
+      const t = new Text({
+        text: line,
+        style: new TextStyle({
+          fontSize: 11,
+          fill: "#9999bb",
+          fontFamily: "monospace",
+          wordWrap: true,
+          wordWrapWidth: LOG_W - LOG_PAD * 2,
+        }),
+      });
+      t.position.set(LOG_X + LOG_PAD, LOG_Y + LOG_PAD + 2 + i * LOG_LINE_H);
+      logLayer.addChild(t);
+    });
+  }
+
+  function addToLog(msg: string) {
+    playLog.push(msg);
+    if (playLog.length > 60) playLog.shift();
+    renderLog();
+  }
 
   // ── HTML HUD ──────────────────────────────────────────────────────────────
   const hud = document.createElement("div");
@@ -392,19 +458,22 @@ export const createBigTwoMpScene = (
   hud.innerHTML = `
     <div class="hud-topbar">
       <button class="hud-back-btn" id="bt-mp-back">← Menu</button>
-      <span class="hud-title bt-pixel-title">BIG TWO</span>
       <div style="width:90px"></div>
     </div>
-    <div class="hud-status" id="bt-mp-status">Connecting…</div>
     <div class="hud-spacer"></div>
     <div style="text-align:center;font-size:12px;color:#f87171;padding:0 16px 4px;pointer-events:none" id="bt-mp-hint"></div>
     <div class="hud-actions" id="bt-mp-actions" style="display:none"></div>
+    <div id="bt-mp-lobby-center" style="position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none">
+      <div style="font-size:52px;font-weight:bold;color:#d4af37;font-family:monospace;letter-spacing:6px;text-shadow:0 2px 16px rgba(0,0,0,0.95)">BIG TWO</div>
+      <div id="bt-mp-lobby-status" style="font-size:15px;color:#aaaacc;margin-top:16px;text-shadow:0 1px 4px rgba(0,0,0,0.8)">Connecting…</div>
+    </div>
   `;
   document.getElementById("pixi-container")!.appendChild(hud);
 
-  const statusEl = hud.querySelector<HTMLDivElement>("#bt-mp-status")!;
   const hintEl = hud.querySelector<HTMLDivElement>("#bt-mp-hint")!;
   const actionsEl = hud.querySelector<HTMLDivElement>("#bt-mp-actions")!;
+  const lobbyCenterEl = hud.querySelector<HTMLDivElement>("#bt-mp-lobby-center")!;
+  const lobbyStatusEl = hud.querySelector<HTMLDivElement>("#bt-mp-lobby-status")!;
 
   hud.querySelector("#bt-mp-back")!.addEventListener("click", async () => {
     await leaveRoom(roomId, userId);
@@ -436,7 +505,7 @@ export const createBigTwoMpScene = (
       <button class="hud-btn hud-btn-green" id="bt-mp-play" disabled>Play</button>
       <button class="hud-btn hud-btn-grey"  id="bt-mp-pass" disabled>Pass</button>
     `;
-    actionsEl.querySelector("#bt-mp-play")!.addEventListener("click", onPlay);
+    actionsEl.querySelector("#bt-mp-play")!.addEventListener("click", () => void onPlay());
     actionsEl.querySelector("#bt-mp-pass")!.addEventListener("click", onPass);
   }
 
@@ -520,15 +589,6 @@ export const createBigTwoMpScene = (
       comboLayer.addChild(c);
     });
 
-    const by = state.last_played_by ?? "";
-    addText(
-      comboLayer,
-      `${by}: ${comboLabel(state.last_combo)}`,
-      SCREEN_WIDTH / 2 - 80,
-      COMBO_Y + CARD_HEIGHT / 2 + 4,
-      10,
-      "#999999",
-    );
   }
 
   function renderHand(state: BigTwoMpState) {
@@ -616,14 +676,15 @@ export const createBigTwoMpScene = (
   function updateHudStatus(state: BigTwoMpState) {
     if (state.phase === "lobby") {
       const n = (state.ready_players ?? []).length;
-      statusEl.textContent = `Waiting for players… (${n}/${state.players.length} ready)`;
+      lobbyStatusEl.textContent = `Waiting for players… (${n}/${state.players.length} ready)`;
+      statusText.text = "";
     } else if (state.phase === "playing") {
       const isMyTurn = state.current_player === userId;
       if (isMyTurn) {
         const scLabel = state.start_card
           ? `${state.start_card.rank}${{ hearts: "♥", diamonds: "♦", clubs: "♣", spades: "♠" }[state.start_card.suit]}`
           : "3♠";
-        statusEl.textContent = state.is_first_move
+        statusText.text = state.is_first_move
           ? `Your turn! Must include ${scLabel}`
           : state.last_combo
             ? `Beat: ${comboLabel(state.last_combo)}`
@@ -632,10 +693,10 @@ export const createBigTwoMpScene = (
         const currentPlayer = state.players.find(
           (p) => p.id === state.current_player,
         );
-        statusEl.textContent = `Waiting for ${currentPlayer?.name ?? state.current_player}…`;
+        statusText.text = `Waiting for ${currentPlayer?.name ?? state.current_player}…`;
       }
     } else {
-      statusEl.textContent = "Game over!";
+      statusText.text = "Game over!";
     }
   }
 
@@ -649,6 +710,28 @@ export const createBigTwoMpScene = (
     renderCombo(state);
     renderHand(state);
     updateHudStatus(state);
+
+    // Toggle lobby overlay vs in-game PixiJS elements
+    const isLobby = state.phase === "lobby";
+    lobbyCenterEl.style.display = isLobby ? "flex" : "none";
+    logLayer.visible = !isLobby;
+    statusText.visible = !isLobby;
+
+    // Track plays and passes for the log
+    if (state.phase === "playing") {
+      if (prevCurrentPlayer !== undefined && prevLastPlayedBy !== undefined) {
+        if (state.last_played_by !== prevLastPlayedBy && state.last_played_by != null) {
+          const player = state.players.find((p) => p.id === state.last_played_by);
+          const name = player?.name ?? state.last_played_by;
+          addToLog(`${name} played ${state.last_combo ? comboLabel(state.last_combo) : "cards"}`);
+        } else if (prevCurrentPlayer !== null && state.current_player !== prevCurrentPlayer) {
+          const player = state.players.find((p) => p.id === prevCurrentPlayer);
+          if (player) addToLog(`${player.name} passed`);
+        }
+      }
+      prevCurrentPlayer = state.current_player ?? null;
+      prevLastPlayedBy = state.last_played_by ?? null;
+    }
 
     const myRdy = state.ready_players.includes(userId);
 
@@ -666,7 +749,10 @@ export const createBigTwoMpScene = (
 
   // ── Card fly animation ───────────────────────────────────────────────────
 
-  function animateCardFly(indices: number[], onComplete: () => void) {
+  function animateCardFly(
+    positions: Array<{ x: number; y: number }>,
+    onComplete: () => void,
+  ) {
     if (animRaf !== null) {
       cancelAnimationFrame(animRaf);
       animRaf = null;
@@ -678,10 +764,7 @@ export const createBigTwoMpScene = (
     const targetY = COMBO_Y - CARD_HEIGHT / 2;
     const startMs = performance.now();
 
-    const clones = indices.map((i) => {
-      const child = handLayer.children[i] as Container | undefined;
-      const startX = child ? child.x : SCREEN_WIDTH / 2;
-      const startY = child ? child.y : HAND_Y;
+    const clones = positions.map(({ x: startX, y: startY }) => {
       const g = new Graphics();
       g.rect(0, 0, CARD_WIDTH, CARD_HEIGHT)
         .fill(0xf8f8f8)
@@ -712,7 +795,7 @@ export const createBigTwoMpScene = (
 
   // ── Button handlers ───────────────────────────────────────────────────────
 
-  function onPlay() {
+  async function onPlay() {
     if (!gs || gs.phase !== "playing") return;
     hintEl.textContent = "";
 
@@ -752,9 +835,32 @@ export const createBigTwoMpScene = (
     if (playBtn) playBtn.disabled = true;
     if (passBtn) passBtn.disabled = true;
 
-    animateCardFly(indices, () => {
-      void submitAction(roomId, userId, "play", { indices });
+    await submitAction(roomId, userId, "play", { indices });
+
+    // Capture positions before removing cards from the hand display
+    const positions = indices.map((i) => {
+      const child = handLayer.children[i] as Container | undefined;
+      return { x: child?.x ?? SCREEN_WIDTH / 2, y: child?.y ?? HAND_Y };
     });
+
+    // Remove played cards from hand (reverse order to keep indices valid)
+    [...indices].reverse().forEach((i) => {
+      if (i < handLayer.children.length) handLayer.removeChildAt(i);
+    });
+
+    // Re-layout remaining cards to close gaps before animation
+    const remaining = handLayer.children.length;
+    if (remaining > 0) {
+      const CARD_OFF = Math.min(38, Math.floor((SCREEN_WIDTH - 120) / remaining));
+      const totalW = (remaining - 1) * CARD_OFF + CARD_WIDTH;
+      const startX = SCREEN_WIDTH / 2 - totalW / 2;
+      handLayer.children.forEach((child, i) => {
+        (child as Container).x = startX + i * CARD_OFF;
+        (child as Container).y = HAND_Y;
+      });
+    }
+
+    animateCardFly(positions, () => {});
   }
 
   function onPass() {
@@ -1059,7 +1165,7 @@ export const createBigTwoMpScene = (
     });
     cleanups.push(
       subscribeToRoomDeletion(roomId, () => {
-        statusEl.textContent = "Host disconnected. Returning to menu…";
+        statusText.text = "Host disconnected. Returning to menu…";
         setTimeout(() => manager.goto("menu"), 2500);
       }),
     );
