@@ -330,6 +330,46 @@ body {
   min-width: 24px;
 }
 
+.menu-match-row {
+  align-items: flex-start;
+}
+
+.menu-tabs {
+  display: flex;
+  gap: 0;
+  width: 100%;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 10px;
+}
+
+.menu-tab {
+  flex: 1;
+  padding: 7px 0;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.menu-tab:hover {
+  color: var(--text);
+}
+
+.menu-tab.active {
+  color: var(--gold);
+  border-bottom-color: var(--gold);
+}
+
+.menu-tab-panel {
+  width: 100%;
+}
+
 .menu-signout-btn {
   position: fixed;
   top: 14px;

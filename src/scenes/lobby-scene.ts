@@ -49,9 +49,9 @@ export const createLobbyScene = (
   let publicRooms: RoomWithPlayers[] = [];
   let joinCode = "";
   let userId = "";
+  let playerId = "";
   let gameStarting = false;
 
-  // Minimal PixiJS background
   const bg = new Graphics();
   bg.rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT).fill(0x08080f);
   root.addChild(bg);
@@ -142,56 +142,30 @@ export const createLobbyScene = (
 
   // ── DOM refs ────────────────────────────────────────────────────────────────
   const roomsList = overlay.querySelector<HTMLDivElement>("#lobby-rooms-list")!;
-  const refreshBtn =
-    overlay.querySelector<HTMLButtonElement>("#lobby-refresh")!;
+  const refreshBtn = overlay.querySelector<HTMLButtonElement>("#lobby-refresh")!;
   const soloBtn = overlay.querySelector<HTMLButtonElement>("#lobby-solo")!;
-  const createPublicBtn = overlay.querySelector<HTMLButtonElement>(
-    "#lobby-create-public",
-  )!;
-  const createPrivateBtn = overlay.querySelector<HTMLButtonElement>(
-    "#lobby-create-private",
-  )!;
-  const createStatusEl = overlay.querySelector<HTMLDivElement>(
-    "#lobby-create-status",
-  )!;
-  const codeLabelEl =
-    overlay.querySelector<HTMLDivElement>("#lobby-code-label")!;
-  const codeDisplayEl = overlay.querySelector<HTMLDivElement>(
-    "#lobby-code-display",
-  )!;
-  const joinInput =
-    overlay.querySelector<HTMLInputElement>("#lobby-join-input")!;
-  const joinCodeBtn =
-    overlay.querySelector<HTMLButtonElement>("#lobby-join-btn")!;
-  const joinStatusEl =
-    overlay.querySelector<HTMLDivElement>("#lobby-join-status")!;
-  const rightContent = overlay.querySelector<HTMLDivElement>(
-    "#lobby-right-content",
-  )!;
-  const roomInfoPanel =
-    overlay.querySelector<HTMLDivElement>("#lobby-room-info")!;
-  const roomTitleEl =
-    overlay.querySelector<HTMLDivElement>("#lobby-room-title")!;
-  const roomPlayersEl = overlay.querySelector<HTMLDivElement>(
-    "#lobby-room-players",
-  )!;
-  const roomWaitingEl = overlay.querySelector<HTMLDivElement>(
-    "#lobby-room-waiting",
-  )!;
-  const startGameBtn =
-    overlay.querySelector<HTMLButtonElement>("#lobby-start-btn")!;
-  const leaveRoomBtn =
-    overlay.querySelector<HTMLButtonElement>("#lobby-leave-btn")!;
+  const createPublicBtn = overlay.querySelector<HTMLButtonElement>("#lobby-create-public")!;
+  const createPrivateBtn = overlay.querySelector<HTMLButtonElement>("#lobby-create-private")!;
+  const createStatusEl = overlay.querySelector<HTMLDivElement>("#lobby-create-status")!;
+  const codeLabelEl = overlay.querySelector<HTMLDivElement>("#lobby-code-label")!;
+  const codeDisplayEl = overlay.querySelector<HTMLDivElement>("#lobby-code-display")!;
+  const joinInput = overlay.querySelector<HTMLInputElement>("#lobby-join-input")!;
+  const joinCodeBtn = overlay.querySelector<HTMLButtonElement>("#lobby-join-btn")!;
+  const joinStatusEl = overlay.querySelector<HTMLDivElement>("#lobby-join-status")!;
+  const rightContent = overlay.querySelector<HTMLDivElement>("#lobby-right-content")!;
+  const roomInfoPanel = overlay.querySelector<HTMLDivElement>("#lobby-room-info")!;
+  const roomTitleEl = overlay.querySelector<HTMLDivElement>("#lobby-room-title")!;
+  const roomPlayersEl = overlay.querySelector<HTMLDivElement>("#lobby-room-players")!;
+  const roomWaitingEl = overlay.querySelector<HTMLDivElement>("#lobby-room-waiting")!;
+  const startGameBtn = overlay.querySelector<HTMLButtonElement>("#lobby-start-btn")!;
+  const leaveRoomBtn = overlay.querySelector<HTMLButtonElement>("#lobby-leave-btn")!;
 
-  // ── Fix B helper: prefer user_id, fall back to player_name ─────────────────
   const findMe = (players: RoomPlayer[]) =>
-    players.find((p) =>
-      p.user_id ? p.user_id === userId : p.player_name === playerName,
-    );
+    players.find((p) => p.player_id === playerId);
 
   // ── Render room list ────────────────────────────────────────────────────────
   const renderRoomList = () => {
-    const filtered = publicRooms.filter((r) => r.game_mode === selectedMode);
+    const filtered = publicRooms.filter((r) => r.type === selectedMode);
     if (filtered.length === 0) {
       roomsList.innerHTML = `<div class="lobby-empty-msg">No open rooms — be the first to create one!</div>`;
       return;
@@ -199,18 +173,18 @@ export const createLobbyScene = (
     const alreadyIn = currentRoom !== null;
     roomsList.innerHTML = filtered
       .map((room) => {
-        const isFull = room.players.length >= room.max_players;
+        const isFull = room.players.length >= room.max_player;
         const disabled = isFull || alreadyIn;
         return `
-          <div class="lobby-room-row" data-code="${room.code}">
+          <div class="lobby-room-row" data-code="${room.room_code}">
             <div class="lobby-room-info">
-              <div class="lobby-room-mode">${GAME_MODE_LABELS[room.game_mode]}</div>
-              <div class="lobby-room-host">Host: ${room.host_name}</div>
-              <div class="lobby-room-count">${room.players.length}/${room.max_players} players</div>
+              <div class="lobby-room-mode">${GAME_MODE_LABELS[room.type]}</div>
+              <div class="lobby-room-host">Code: ${room.room_code}</div>
+              <div class="lobby-room-count">${room.players.length}/${room.max_player} players</div>
             </div>
             <button
               class="lobby-join-btn"
-              data-code="${room.code}"
+              data-code="${room.room_code}"
               ${disabled ? "disabled" : ""}
             >${isFull ? "Full" : "Join"}</button>
           </div>
@@ -227,6 +201,7 @@ export const createLobbyScene = (
         });
       });
   };
+
   const renderSkeletons = () => {
     roomsList.innerHTML = [1, 2, 3]
       .map(
@@ -254,25 +229,25 @@ export const createLobbyScene = (
   const updatePlayerList = (players: RoomPlayer[]) => {
     latestPlayers = players;
     if (!currentRoom) return;
-    const mode = GAME_MODE_LABELS[currentRoom.game_mode];
-    const privTag = currentRoom.is_private ? " 🔒 Private" : " 🌐 Public";
-    roomTitleEl.textContent = `${mode}${privTag} · Code: ${currentRoom.code} (${players.length}/${currentRoom.max_players})`;
+    const mode = GAME_MODE_LABELS[currentRoom.type];
+    const privTag = currentRoom.is_public ? " 🌐 Public" : " 🔒 Private";
+    roomTitleEl.textContent = `${mode}${privTag} · Code: ${currentRoom.room_code} (${players.length}/${currentRoom.max_player})`;
     roomPlayersEl.innerHTML = players
       .map(
         (p) =>
-          `<div class="lobby-ri-player">${p.is_host ? "♛" : "○"} ${p.player_name}${p.is_host ? " (Host)" : ""}</div>`,
+          `<div class="lobby-ri-player">${p.is_room_owner ? "♛" : "○"} ${p.display_name}${p.is_room_owner ? " (Host)" : ""}</div>`,
       )
       .join("");
 
     const me = findMe(players);
-    const isHost = me?.is_host ?? false;
+    const isOwner = me?.is_room_owner ?? false;
     const minPlayers = 2;
-    const canStart = isHost && players.length >= minPlayers;
+    const canStart = isOwner && players.length >= minPlayers;
 
-    startGameBtn.style.display = isHost ? "" : "none";
+    startGameBtn.style.display = isOwner ? "" : "none";
     startGameBtn.disabled = !canStart;
 
-    if (!isHost) {
+    if (!isOwner) {
       roomWaitingEl.textContent = "Waiting for host to start the game…";
     } else if (players.length < minPlayers) {
       roomWaitingEl.textContent = `Need at least ${minPlayers} players to start.`;
@@ -287,13 +262,13 @@ export const createLobbyScene = (
     joinCodeBtn.disabled = true;
   };
 
-  const amIHost = () => findMe(currentRoom?.players ?? [])?.is_host ?? false;
+  const amIOwner = () => findMe(currentRoom?.players ?? [])?.is_room_owner ?? false;
 
   const enterRoom = (room: RoomWithPlayers) => {
     currentRoom = room;
     updatePlayerList(room.players);
 
-    if (amIHost()) {
+    if (amIOwner()) {
       stopHeartbeat?.();
       stopHeartbeat = startHostHeartbeat(room.id);
     }
@@ -302,16 +277,17 @@ export const createLobbyScene = (
     unsubscribeRoom = subscribeToRoom(
       room.id,
       (players) => updatePlayerList(players),
-      (gameMode) => {
+      (type) => {
         if (currentRoom) currentRoom = { ...currentRoom, status: "playing" };
         gameStarting = true;
-        const isHost = findMe(latestPlayers)?.is_host ?? false;
-        manager.goto(gameMode === "bigtwo" ? "bigtwo" : gameMode, {
+        const isOwner = findMe(latestPlayers)?.is_room_owner ?? false;
+        manager.goto(type === "bigtwo" ? "bigtwo" : type, {
           playerName,
           userId,
+          playerId,
           balance: STARTING_BALANCE,
           roomId: room.id,
-          isHost,
+          isHost: isOwner,
         });
       },
     );
@@ -322,7 +298,7 @@ export const createLobbyScene = (
   const quickJoinRoom = async (code: string) => {
     joinStatusEl.textContent = "Joining…";
     try {
-      const room = await joinRoom(code, userId, playerName);
+      const room = await joinRoom(code, playerId, playerName);
       joinStatusEl.textContent = "";
       enterRoom(room);
     } catch (err) {
@@ -330,9 +306,8 @@ export const createLobbyScene = (
     }
   };
 
-  // Fix C: guard doCreateRoom
-  const doCreateRoom = async (isPrivate: boolean) => {
-    if (!userId) {
+  const doCreateRoom = async (isPublic: boolean) => {
+    if (!playerId) {
       createStatusEl.textContent = "Loading…";
       return;
     }
@@ -340,16 +315,11 @@ export const createLobbyScene = (
     createPublicBtn.disabled = true;
     createPrivateBtn.disabled = true;
     try {
-      const room = await createRoom(
-        selectedMode,
-        userId,
-        playerName,
-        isPrivate,
-      );
+      const room = await createRoom(selectedMode, playerId, playerName, isPublic);
       createStatusEl.textContent = "";
-      if (isPrivate) {
+      if (!isPublic) {
         codeLabelEl.style.display = "";
-        codeDisplayEl.textContent = room.code;
+        codeDisplayEl.textContent = room.room_code;
       }
       enterRoom(room);
       void refreshPublicRooms();
@@ -361,28 +331,19 @@ export const createLobbyScene = (
   };
 
   // ── Wire buttons ─────────────────────────────────────────────────────────────
-  overlay
-    .querySelector("#lobby-back")!
-    .addEventListener("click", () => manager.goto("menu"));
-
+  overlay.querySelector("#lobby-back")!.addEventListener("click", () => manager.goto("menu"));
   refreshBtn.addEventListener("click", () => void refreshPublicRooms());
 
   soloBtn.addEventListener("click", () => {
-    const sceneName =
-      selectedMode === "bigtwo"
-        ? "bigtwo"
-        : (selectedMode as "blackjack" | "poker");
+    const sceneName = selectedMode === "bigtwo" ? "bigtwo" : (selectedMode as "blackjack" | "poker");
     manager.goto(sceneName, { playerName, balance: STARTING_BALANCE });
   });
 
-  createPublicBtn.addEventListener("click", () => void doCreateRoom(false));
-  createPrivateBtn.addEventListener("click", () => void doCreateRoom(true));
+  createPublicBtn.addEventListener("click", () => void doCreateRoom(true));
+  createPrivateBtn.addEventListener("click", () => void doCreateRoom(false));
 
   joinInput.addEventListener("input", () => {
-    joinCode = joinInput.value
-      .toUpperCase()
-      .replace(/[^A-Z0-9]/g, "")
-      .slice(0, 6);
+    joinCode = joinInput.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
     joinInput.value = joinCode;
     joinCodeBtn.disabled = joinCode.length !== 6 || !!currentRoom;
   });
@@ -405,10 +366,11 @@ export const createLobbyScene = (
       currentRoom = { ...currentRoom, status: "playing" };
       gameStarting = true;
       manager.goto(
-        currentRoom.game_mode === "bigtwo" ? "bigtwo" : currentRoom.game_mode,
+        currentRoom.type === "bigtwo" ? "bigtwo" : currentRoom.type,
         {
           playerName,
           userId,
+          playerId,
           balance: STARTING_BALANCE,
           roomId: currentRoom.id,
           isHost: true,
@@ -424,16 +386,14 @@ export const createLobbyScene = (
     if (!currentRoom) return;
     leaveRoomBtn.disabled = true;
     try {
-      await leaveRoom(currentRoom.id, userId);
+      await leaveRoom(currentRoom.id, playerId);
 
-      // Reset local state
       currentRoom = null;
       unsubscribeRoom?.();
       unsubscribeRoom = null;
       stopHeartbeat?.();
       stopHeartbeat = null;
 
-      // Reset UI
       roomInfoPanel.style.display = "none";
       rightContent.style.display = "";
       createPublicBtn.disabled = false;
@@ -453,7 +413,6 @@ export const createLobbyScene = (
   void refreshPublicRooms();
   unsubscribePublic = subscribeToPublicRooms(() => void refreshPublicRooms());
 
-  // Fix A + load auth user + auto-restore
   void (async () => {
     const user = await getCurrentUser();
     if (!user) {
@@ -461,25 +420,21 @@ export const createLobbyScene = (
       return;
     }
     userId = user.id;
-    // Fix A: re-enable create buttons now that userId is loaded
+    playerId = user.playerId;
+
     if (!currentRoom) {
       createPublicBtn.disabled = false;
       createPrivateBtn.disabled = false;
     }
 
-    const existing = await getMyWaitingRoom(userId);
+    const existing = await getMyWaitingRoom(playerId);
     if (existing) enterRoom(existing);
   })();
 
   // ── Teardown ─────────────────────────────────────────────────────────────────
   root.__teardown = () => {
-    if (
-      currentRoom &&
-      amIHost() &&
-      currentRoom.status === "waiting" &&
-      !gameStarting
-    ) {
-      void leaveRoom(currentRoom.id, userId);
+    if (currentRoom && amIOwner() && currentRoom.status === "waiting" && !gameStarting) {
+      void leaveRoom(currentRoom.id, playerId);
     }
     unsubscribeRoom?.();
     unsubscribePublic?.();

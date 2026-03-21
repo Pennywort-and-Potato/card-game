@@ -366,7 +366,8 @@ export function aiPickPlay(
   }
 
   if (current === null) {
-    // Free turn: play lowest non-2 single card
+    // Free turn: play lowest non-2 single to avoid thới 2 penalty.
+    // If the hand is all 2s, the AI must play one (and accept the penalty).
     const nonTwos = sortHand(hand.filter((c) => c.rank !== "2"));
     const target = nonTwos.length > 0 ? nonTwos[0] : sortHand(hand)[0];
     return {
@@ -379,7 +380,14 @@ export function aiPickPlay(
 
   const beating = findBeatingPlays(hand, current);
   if (beating.length === 0) return null;
-  return beating[0];
+
+  // Prefer plays that do NOT trigger thới 2 (emptying hand with a rank-2 card).
+  // If every available beat would cause thới 2, pass instead and keep the 2.
+  const safe = beating.filter(
+    (c) =>
+      !(c.cards.length === hand.length && c.cards.some((cd) => cd.rank === "2")),
+  );
+  return safe.length > 0 ? safe[0] : null;
 }
 
 // ─── Deck & Deal ─────────────────────────────────────────────────────────────

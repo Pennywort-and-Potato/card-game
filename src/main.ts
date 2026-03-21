@@ -1,5 +1,5 @@
 import "./styles/main.css";
-import { Application, Assets, Container } from "pixi.js";
+import { Application, Assets, Container, TextureSource } from "pixi.js";
 import { SceneManager } from "./systems/scene-manager";
 import { createAuthScene } from "./scenes/auth-scene";
 import { createMenuScene } from "./scenes/menu-scene";
@@ -15,12 +15,15 @@ import { setViewport } from "./utils/viewport";
 import { getCurrentUser } from "./lib/auth";
 
 const bootstrap = async () => {
+  TextureSource.defaultOptions.scaleMode = "nearest";
+
   const app = new Application();
 
   await app.init({
-    resizeTo: window,
+    width: window.innerWidth,
+    height: window.innerHeight,
     background: "#0f3d20",
-    antialias: true,
+    antialias: false,
     autoDensity: true,
     resolution: window.devicePixelRatio || 1,
   });
@@ -31,12 +34,18 @@ const bootstrap = async () => {
   const viewport = new Container();
   app.stage.addChild(viewport);
 
+  const dpr = window.devicePixelRatio || 1;
+
   const resize = () => {
     const width = window.innerWidth;
     const height = window.innerHeight;
     const scale = Math.min(width / SCREEN_WIDTH, height / SCREEN_HEIGHT);
     const offX = (width - SCREEN_WIDTH * scale) / 2;
     const offY = (height - SCREEN_HEIGHT * scale) / 2;
+
+    // Render at dpr * viewportScale so text auto-resolution matches
+    // the effective pixel density on screen — eliminates text blurring.
+    app.renderer.resize(width, height, dpr * scale);
 
     viewport.scale.set(scale);
     viewport.position.set(offX, offY);
@@ -101,7 +110,7 @@ const bootstrap = async () => {
   // Route to auth if no active session, otherwise go straight to menu
   const user = await getCurrentUser();
   if (user) {
-    manager.goto("menu", { playerName: user.displayName, userId: user.id });
+    manager.goto("menu", { playerName: user.displayName, userId: user.id, playerId: user.playerId });
   } else {
     manager.goto("auth");
   }

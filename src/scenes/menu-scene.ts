@@ -4,6 +4,7 @@ import type { SceneManager } from "../systems/scene-manager";
 import type { SceneParams } from "../types";
 import { SCREEN_WIDTH, SCREEN_HEIGHT } from "../utils/constants";
 import { fetchLeaderboard } from "../lib/game-api";
+import { fetchMatchResults } from "../lib/game-state-api";
 import { signOut, getCurrentUser } from "../lib/auth";
 
 export const createMenuScene = (
@@ -66,9 +67,21 @@ export const createMenuScene = (
     <div class="menu-divider"></div>
 
     <div class="menu-lb-section">
-      <div class="menu-lb-title">Top Scores</div>
-      <div class="menu-lb-list" id="menu-lb-list">
-        <div class="menu-lb-row"><span class="menu-lb-rank">—</span><span>Loading…</span></div>
+      <div class="menu-tabs" id="menu-tabs">
+        <button class="menu-tab active" data-tab="scores">Top Scores</button>
+        <button class="menu-tab" data-tab="matches">Recent Matches</button>
+      </div>
+
+      <div id="menu-panel-scores" class="menu-tab-panel">
+        <div class="menu-lb-list" id="menu-lb-list">
+          <div class="menu-lb-row"><span class="menu-lb-rank">—</span><span>Loading…</span></div>
+        </div>
+      </div>
+
+      <div id="menu-panel-matches" class="menu-tab-panel" style="display:none">
+        <div class="menu-lb-list" id="menu-matches-list">
+          <div class="menu-lb-row"><span class="menu-lb-rank">—</span><span>Loading…</span></div>
+        </div>
       </div>
     </div>
   `;
@@ -119,6 +132,20 @@ export const createMenuScene = (
       nameInput.value = user.displayName;
   });
 
+  // ── Tab switching ────────────────────────────────────────────────────────────
+  const tabs = overlay.querySelectorAll<HTMLButtonElement>(".menu-tab");
+  const panelScores = overlay.querySelector<HTMLDivElement>("#menu-panel-scores")!;
+  const panelMatches = overlay.querySelector<HTMLDivElement>("#menu-panel-matches")!;
+  tabs.forEach((tab) => {
+    tab.addEventListener("click", () => {
+      tabs.forEach((t) => t.classList.remove("active"));
+      tab.classList.add("active");
+      const which = tab.dataset["tab"];
+      panelScores.style.display = which === "scores" ? "" : "none";
+      panelMatches.style.display = which === "matches" ? "" : "none";
+    });
+  });
+
   // ── Leaderboard ─────────────────────────────────────────────────────────────
   const lbList = overlay.querySelector<HTMLDivElement>("#menu-lb-list")!;
   void fetchLeaderboard().then((entries) => {
@@ -132,6 +159,32 @@ export const createMenuScene = (
         (e, i) =>
           `<div class="menu-lb-row"><span class="menu-lb-rank">${i + 1}.</span><span>${e.player_name}</span><span>$${e.high_score}</span></div>`,
       )
+      .join("");
+  });
+
+  // ── Recent Big Two matches ───────────────────────────────────────────────────
+  const matchesList = overlay.querySelector<HTMLDivElement>("#menu-matches-list")!;
+  void fetchMatchResults("bigtwo", 8).then((results) => {
+    if (results.length === 0) {
+      matchesList.innerHTML = `<div class="menu-lb-row"><span style="color:var(--text-muted);width:100%;text-align:center">No matches yet — play one!</span></div>`;
+      return;
+    }
+    const placeIcons = ["🥇", "🥈", "🥉", "💀"];
+    matchesList.innerHTML = results
+      .map((r) => {
+        const when = new Date(r.issued_at).toLocaleDateString(undefined, {
+          month: "short",
+          day: "numeric",
+        });
+        const podium = r.finish_order
+          .slice(0, 4)
+          .map((p, i) => `${placeIcons[i] ?? (i + 1) + "."} ${p.name}`)
+          .join(" · ");
+        return `<div class="menu-lb-row menu-match-row">
+          <span class="menu-lb-rank" style="font-size:10px;min-width:36px">${when}</span>
+          <span style="flex:1;font-size:11px;color:var(--text)">${podium}</span>
+        </div>`;
+      })
       .join("");
   });
 

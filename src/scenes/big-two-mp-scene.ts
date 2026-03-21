@@ -24,6 +24,7 @@ import type {
 import {
   fetchGameState,
   pushGameState,
+  saveMatchResult,
   submitAction,
   subscribeToActions,
   subscribeToGameState,
@@ -228,12 +229,8 @@ function drawOppSlot(
       addText(container, "▶ TURN", x + 54, y + 42, 8, "#ffd700", true);
   } else {
     const rank = p.finish_rank;
-    const col =
-      rank === 1
-        ? "#ffd700"
-        : rank === state.players.length
-          ? "#f87171"
-          : "#aaaadd";
+    const isLastPlace = rank === state.players.length;
+    const col = rank === 1 ? "#ffd700" : isLastPlace ? "#f87171" : "#aaaadd";
     addText(
       container,
       rank ? placeLabel(rank) : "?",
@@ -243,6 +240,9 @@ function drawOppSlot(
       col,
       true,
     );
+    if (isLastPlace && p.hand.length === 2) {
+      addText(container, "💀 x2 PENALTY", x + 54, y + 42, 8, "#ff4444", true);
+    }
   }
 
   // Card count mini-badge (playing phase)
@@ -325,12 +325,8 @@ function drawLocalSlot(
     );
   } else {
     const rank = p.finish_rank;
-    const col =
-      rank === 1
-        ? "#ffd700"
-        : rank === state.players.length
-          ? "#f87171"
-          : "#aaaadd";
+    const isLastPlace = rank === state.players.length;
+    const col = rank === 1 ? "#ffd700" : isLastPlace ? "#f87171" : "#aaaadd";
     addText(
       container,
       rank ? placeLabel(rank) : "?",
@@ -340,6 +336,9 @@ function drawLocalSlot(
       col,
       true,
     );
+    if (isLastPlace && p.hand.length === 2) {
+      addText(container, "💀 x2 PENALTY", x + 54, y + 40, 8, "#ff4444", true);
+    }
   }
 }
 
@@ -353,7 +352,7 @@ export const createBigTwoMpScene = (
   root.label = "big-two-mp-scene";
 
   const roomId = params.roomId as string;
-  const userId = params.userId as string;
+  const userId = params.playerId as string;
   const isHost = (params.isHost as boolean) ?? false;
 
   let gs: BigTwoMpState | null = null;
@@ -620,8 +619,11 @@ export const createBigTwoMpScene = (
     } else if (state.phase === "playing") {
       const isMyTurn = state.current_player === userId;
       if (isMyTurn) {
+        const scLabel = state.start_card
+          ? `${state.start_card.rank}${{ hearts: "♥", diamonds: "♦", clubs: "♣", spades: "♠" }[state.start_card.suit]}`
+          : "3♠";
         statusEl.textContent = state.is_first_move
-          ? "Your turn! Must include 3♠"
+          ? `Your turn! Must include ${scLabel}`
           : state.last_combo
             ? `Beat: ${comboLabel(state.last_combo)}`
             : "Your turn — play anything";
@@ -799,8 +801,8 @@ export const createBigTwoMpScene = (
 
     // ── READY action ────────────────────────────────────────────────────
     if (action.action_type === "ready") {
-      if (!state.ready_players.includes(action.player_name)) {
-        state.ready_players.push(action.player_name);
+      if (!state.ready_players.includes(action.player_id)) {
+        state.ready_players.push(action.player_id);
       }
       if (state.ready_players.length >= state.players.length) {
         // All ready — deal cards and start!
@@ -815,11 +817,17 @@ export const createBigTwoMpScene = (
           p.finish_rank = null;
         });
         const handsArr = state.players.map((p) => p.hand);
-        const firstIdx = findThreeOfSpadesOwner(handsArr);
+        const lastWinnerIdx = state.last_winner
+          ? state.players.findIndex((p) => p.id === state.last_winner)
+          : -1;
+        const firstIdx =
+          lastWinnerIdx >= 0 ? lastWinnerIdx : findThreeOfSpadesOwner(handsArr);
         state.phase = "playing";
         state.current_player = state.players[firstIdx].id;
-        state.is_first_move = true;
-        state.start_card = findStartingCard(handsArr);
+        state.last_winner = undefined;
+        // Winner of the previous round starts freely — skip start-card constraint.
+        state.is_first_move = lastWinnerIdx >= 0 ? false : true;
+        state.start_card = lastWinnerIdx >= 0 ? null : findStartingCard(handsArr);
         state.last_combo = null;
         state.last_played_by = null;
         state.passed = [];
@@ -835,16 +843,16 @@ export const createBigTwoMpScene = (
     if (action.action_type === "pass") {
       if (
         state.phase !== "playing" ||
-        state.current_player !== action.player_name ||
+        state.current_player !== action.player_id ||
         state.is_first_move
       ) {
         processing = false;
         void drainQueue();
         return;
       }
-      if (!state.passed.includes(action.player_name))
-        state.passed.push(action.player_name);
-      nextTurn(state, action.player_name);
+      if (!state.passed.includes(action.player_id))
+        state.passed.push(action.player_id);
+      nextTurn(state, action.player_id);
 
       const active = state.players.filter((p: BigTwoMpPlayer) => !p.finished);
       const allPassedExceptLast = active.every(
@@ -868,14 +876,14 @@ export const createBigTwoMpScene = (
     else if (action.action_type === "play") {
       if (
         state.phase !== "playing" ||
-        state.current_player !== action.player_name
+        state.current_player !== action.player_id
       ) {
         processing = false;
         void drainQueue();
         return;
       }
       const player = state.players.find(
-        (p: BigTwoMpPlayer) => p.id === action.player_name,
+        (p: BigTwoMpPlayer) => p.id === action.player_id,
       );
       if (!player) {
         processing = false;
@@ -921,14 +929,23 @@ export const createBigTwoMpScene = (
       );
 
       state.last_combo = combo;
-      state.last_played_by = action.player_name;
+      state.last_played_by = action.player_id;
       state.passed = [];
       state.is_first_move = false;
+      if (!state.thoi_hai) state.thoi_hai = [];
 
       if (player.hand.length === 0) {
+        // "Thới 2" rule: if the final play contains any rank-2 card, the player
+        // is penalized — marked finished but placed last instead of winning.
+        const isThoiHai = combo.cards.some((c: CardData) => c.rank === "2");
+
         player.finished = true;
-        player.finish_rank = state.finish_order.length + 1;
-        state.finish_order.push(player.id);
+        if (isThoiHai) {
+          state.thoi_hai.push(player.id);
+        } else {
+          player.finish_rank = state.finish_order.length + 1;
+          state.finish_order.push(player.id);
+        }
 
         const remaining = state.players.filter(
           (p: BigTwoMpPlayer) => !p.finished,
@@ -939,14 +956,29 @@ export const createBigTwoMpScene = (
             remaining[0].finish_rank = state.finish_order.length + 1;
             state.finish_order.push(remaining[0].id);
           }
+          // Append thới 2 players at the end — they always finish last
+          for (const id of state.thoi_hai) {
+            if (!state.finish_order.includes(id)) state.finish_order.push(id);
+          }
           state.phase = "game-over";
           await pushGameState(roomId, state);
+          // Host persists the match result for the dashboard
+          const finishOrderNames = state.finish_order.map((id) => ({
+            id,
+            name: state.players.find((p: BigTwoMpPlayer) => p.id === id)?.name ?? id,
+          }));
+          void saveMatchResult(
+            roomId,
+            "bigtwo",
+            state.finish_order[0] ?? null,
+            finishOrderNames,
+          );
           processing = false;
           void drainQueue();
           return;
         }
       }
-      nextTurn(state, action.player_name);
+      nextTurn(state, action.player_id);
       await pushGameState(roomId, state);
     }
 
@@ -959,8 +991,8 @@ export const createBigTwoMpScene = (
   const initGame = async (): Promise<void> => {
     const roomPlayers = await getRoomPlayers(roomId);
     const players: BigTwoMpPlayer[] = roomPlayers.map((rp) => ({
-      id: rp.user_id ?? rp.player_name,
-      name: rp.player_name,
+      id: rp.player_id,
+      name: rp.display_name,
       hand: [],
       finished: false,
       finish_rank: null,
@@ -975,6 +1007,7 @@ export const createBigTwoMpScene = (
       passed: [],
       is_first_move: true,
       finish_order: [],
+      thoi_hai: [],
       start_card: null,
     };
     await pushGameState(roomId, state);
@@ -995,6 +1028,7 @@ export const createBigTwoMpScene = (
       passed: [],
       is_first_move: true,
       finish_order: [],
+      last_winner: fresh.finish_order[0] ?? undefined,
       players: fresh.players.map((p) => ({
         ...p,
         hand: [],

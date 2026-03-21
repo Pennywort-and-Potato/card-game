@@ -40,7 +40,7 @@ export const createPokerMpScene = (
   root.label = "poker-mp-scene";
 
   const roomId = params.roomId as string;
-  const userId = params.userId as string;
+  const userId = params.playerId as string;
   const isHost = (params.isHost as boolean) ?? false;
 
   let gs: PokerMpState | null = null;
@@ -400,14 +400,14 @@ export const createPokerMpScene = (
       JSON.stringify(fresh),
     ) as PokerMpState;
 
-    if (state.active_player !== action.player_name) {
+    if (state.active_player !== action.player_id) {
       processing = false;
       void drainQueue();
       return;
     }
 
     const playerIdx = state.players.findIndex(
-      (p) => p.id === action.player_name,
+      (p) => p.id === action.player_id,
     );
     const player = state.players[playerIdx];
     if (!player || player.folded) {
@@ -497,8 +497,8 @@ export const createPokerMpScene = (
       current_bet: 0,
       dealer_index: 0,
       players: roomPlayers.map((p) => ({
-        id: p.user_id ?? p.player_name,
-        name: p.player_name,
+        id: p.player_id,
+        name: p.display_name,
         hand: [],
         balance: p.balance,
         bet_this_round: 0,

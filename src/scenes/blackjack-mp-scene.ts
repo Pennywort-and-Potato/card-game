@@ -39,7 +39,7 @@ export const createBlackjackMpScene = (
   root.label = "blackjack-mp-scene";
 
   const roomId = params.roomId as string;
-  const userId = params.userId as string;
+  const userId = params.playerId as string;
   const isHost = (params.isHost as boolean) ?? false;
 
   const cleanups: (() => void)[] = [];
@@ -367,7 +367,7 @@ export const createBlackjackMpScene = (
     ) as BlackjackMpState;
 
     if (action.action_type === "ready") {
-      const p = state.players.find((x) => x.id === action.player_name);
+      const p = state.players.find((x) => x.id === action.player_id);
       if (p && p.status === "betting") p.status = "playing";
 
       if (state.players.every((x) => x.status !== "betting")) {
@@ -399,9 +399,9 @@ export const createBlackjackMpScene = (
       await pushGameState(roomId, state);
     } else if (
       action.action_type === "hit" &&
-      state.active_player === action.player_name
+      state.active_player === action.player_id
     ) {
-      const p = state.players.find((x) => x.id === action.player_name)!;
+      const p = state.players.find((x) => x.id === action.player_id)!;
       p.hand = [...p.hand, { ...state.deck.shift()!, isFaceUp: true }];
       const hv = calculateHandValue(p.hand);
       if (hv.isBust) {
@@ -420,9 +420,9 @@ export const createBlackjackMpScene = (
       }
     } else if (
       action.action_type === "stand" &&
-      state.active_player === action.player_name
+      state.active_player === action.player_id
     ) {
-      const p = state.players.find((x) => x.id === action.player_name)!;
+      const p = state.players.find((x) => x.id === action.player_id)!;
       p.status = "stand";
       advanceTurn(state);
       await pushGameState(roomId, state);
@@ -463,8 +463,8 @@ export const createBlackjackMpScene = (
       deck,
       dealer_hand: [],
       players: roomPlayers.map((p) => ({
-        id: p.user_id ?? p.player_name,
-        name: p.player_name,
+        id: p.player_id,
+        name: p.display_name,
         hand: [],
         bet: MP_BET,
         balance: p.balance,

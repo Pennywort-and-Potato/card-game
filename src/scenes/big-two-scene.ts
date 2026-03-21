@@ -65,6 +65,9 @@ export const createBigTwoScene = (
   let gameOver = false;
   const selectedIndices = new Set<number>();
   const finishOrder: number[] = [];
+  // "Thới 2" (thối 2): players who emptied their hand by playing a rank-2 card.
+  // They are penalized and always placed last, regardless of when they finished.
+  const thoiHaiPlayers: number[] = [];
   const pendingTimeouts: ReturnType<typeof setTimeout>[] = [];
 
   function addTimeout(fn: () => void, ms: number) {
@@ -329,9 +332,13 @@ export const createBigTwoScene = (
       container.addChild(countLabel);
 
       if (currentPlayerIdx === 0 && !gameOver) {
+        const scLabel =
+          startCard.rank === "3" && startCard.suit === "spades"
+            ? "♠3"
+            : `${startCard.rank}${{ hearts: "♥", diamonds: "♦", clubs: "♣", spades: "♠" }[startCard.suit]}`;
         const hint = new Text({
           text: isFirstMove
-            ? "First move must include ♠3"
+            ? `First move must include ${scLabel}`
             : "Select cards, then Play",
           style: new TextStyle({ fontSize: 12, fill: "#88aa88" }),
         });
@@ -379,33 +386,41 @@ export const createBigTwoScene = (
 
   // ── Game flow ──────────────────────────────────────────────────────────────
 
-  function dealAndStart() {
+  function dealAndStart(forcedFirstPlayer?: number) {
     const deck = createBigTwoDeck();
     const hands = dealCards(deck, 4);
     for (let i = 0; i < 4; i++) {
       players[i].hand = sortHand(hands[i]);
     }
     startCard = findStartingCard(hands);
-    currentPlayerIdx = findThreeOfSpadesOwner(hands);
-    lastPlayedBy = currentPlayerIdx;
-    isFirstMove = true;
+    if (forcedFirstPlayer !== undefined) {
+      currentPlayerIdx = forcedFirstPlayer;
+      // Winner of the previous round starts freely — no start-card constraint.
+      isFirstMove = false;
+    } else {
+      currentPlayerIdx = findThreeOfSpadesOwner(hands);
+      isFirstMove = true;
+    }
     currentCombo = null;
     passedInRound.clear();
     selectedIndices.clear();
     finishOrder.length = 0;
+    thoiHaiPlayers.length = 0;
     gameOver = false;
 
-    const hasThreeSpades =
-      startCard.rank === "3" && startCard.suit === "spades";
     renderAll();
-    msgText.text = hasThreeSpades
-      ? `${players[currentPlayerIdx].name} starts (has ♠3)`
-      : `${players[currentPlayerIdx].name} starts (lowest card)`;
+    msgText.text =
+      forcedFirstPlayer !== undefined
+        ? `${players[currentPlayerIdx].name} starts (last winner)`
+        : startCard.rank === "3" && startCard.suit === "spades"
+          ? `${players[currentPlayerIdx].name} starts (has ♠3)`
+          : `${players[currentPlayerIdx].name} starts (lowest card)`;
     beginTurn();
   }
 
   function beginTurn() {
     if (gameOver) return;
+
     updateHudButtons();
     updateHudStatus();
     updateTurnIndicators();
@@ -445,10 +460,18 @@ export const createBigTwoScene = (
     }
 
     if (player.hand.length === 0) {
-      finishOrder.push(pIdx);
-      const place = finishOrder.length;
-      msgText.text = `${player.name} finished ${placeLabel(place)}!`;
+      // "Thới 2" rule: if the final play contains any rank-2 card, the player
+      // is penalized — they do NOT win, but are placed last instead.
+      if (combo.cards.some((c) => c.rank === "2")) {
+        thoiHaiPlayers.push(pIdx);
+        msgText.text = `${player.name} THỚI 2 — goes last!`;
+      } else {
+        finishOrder.push(pIdx);
+        const place = finishOrder.length;
+        msgText.text = `${player.name} finished ${placeLabel(place)}!`;
+      }
 
+      // Count players who still have cards (thới 2 player's hand is now 0, correctly excluded)
       const remaining = players.filter((p) => p.hand.length > 0).length;
       renderAll();
 
@@ -547,6 +570,11 @@ export const createBigTwoScene = (
   }
 
   function showGameEnd() {
+    // Thới 2 players always go last — append them to finishOrder now
+    for (const pIdx of thoiHaiPlayers) {
+      if (!finishOrder.includes(pIdx)) finishOrder.push(pIdx);
+    }
+
     gameOver = true;
     renderAll();
 
@@ -599,12 +627,31 @@ export const createBigTwoScene = (
       nameEl.position.set(SCREEN_WIDTH / 2 - 60, y);
       root.addChild(nameEl);
 
-      if (rank === 3) {
-        const has2 = players[pIdx].hand.some((c) => c.rank === "2");
-        if (has2) {
+      // Show thới 2 penalty badge for any player who triggered the rule
+      if (thoiHaiPlayers.includes(pIdx)) {
+        const pen = new Text({
+          text: "💀 Thới 2 penalty!",
+          style: new TextStyle({ fontSize: 14, fill: "#ff4444" }),
+        });
+        pen.anchor.set(1, 0.5);
+        pen.position.set(SCREEN_WIDTH / 2 + 260, y);
+        root.addChild(pen);
+      } else if (rank === finishOrder.length - 1 && !thoiHaiPlayers.includes(pIdx)) {
+        // Normal last-place penalty indicators
+        const hand = players[pIdx].hand;
+        const penaltyText =
+          hand.length === 2
+            ? "💀 Double Penalty! (2 cards left)"
+            : hand.some((c) => c.rank === "2")
+              ? "⚠ holds a 2"
+              : null;
+        if (penaltyText) {
           const pen = new Text({
-            text: "⚠ holds a 2",
-            style: new TextStyle({ fontSize: 14, fill: "#ff9944" }),
+            text: penaltyText,
+            style: new TextStyle({
+              fontSize: 14,
+              fill: hand.length === 2 ? "#ff4444" : "#ff9944",
+            }),
           });
           pen.anchor.set(1, 0.5);
           pen.position.set(SCREEN_WIDTH / 2 + 260, y);
@@ -621,6 +668,7 @@ export const createBigTwoScene = (
       <button class="hud-btn hud-btn-grey" id="tl-menu">Main Menu</button>
     `;
     hud.querySelector("#tl-again")!.addEventListener("click", () => {
+      const lastWinner = finishOrder[0];
       while (root.children.length > fixedChildCount) {
         root.removeChildAt(root.children.length - 1);
       }
@@ -629,7 +677,7 @@ export const createBigTwoScene = (
         <button class="hud-btn hud-btn-red" id="tl-pass" disabled>Pass</button>
       `;
       rewireButtons();
-      dealAndStart();
+      dealAndStart(lastWinner);
     });
     hud
       .querySelector("#tl-menu")!

@@ -9,7 +9,12 @@
       "Bash(bun add:*)",
       "Bash(wc -l /d/sourcecode/card-game/src/**/*.ts)",
       "Bash(bunx tsc:*)",
-      "Bash(grep -v \"^\\\\s*$\")"
+      "Bash(grep -v \"^\\\\s*$\")",
+      "Bash(find /d/sourcecode/card-game/supabase/migrations -type f -name *.sql)",
+      "Bash(grep:*)"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "supabase"
+  ]
 }

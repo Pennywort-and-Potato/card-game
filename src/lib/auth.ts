@@ -1,7 +1,8 @@
 import { supabase } from "./supabase";
 
 export type AuthUser = {
-  id: string;
+  id: string;          // auth.users.id
+  playerId: string;    // players.id
   email?: string;
   displayName: string;
   isGuest: boolean;
@@ -36,9 +37,26 @@ const loadCache = (): CachedAuth | null => {
 
 const clearCache = () => localStorage.removeItem(CACHE_KEY);
 
+/** Upsert a players row for this auth user, return players.id */
+const getOrCreatePlayer = async (
+  userId: string,
+  displayName: string,
+): Promise<string> => {
+  const { data, error } = await supabase
+    .from("players")
+    .upsert([{ user_id: userId, display_name: displayName }] as never, {
+      onConflict: "user_id",
+      ignoreDuplicates: false,
+    })
+    .select("id")
+    .single();
+
+  if (error || !data) throw new Error(error?.message ?? "Failed to get player");
+  return (data as { id: string }).id;
+};
+
 /** Return current session user, or null. */
 export const getCurrentUser = async (): Promise<AuthUser | null> => {
-  // Use local session first (no network call) then validate with server
   const {
     data: { session },
   } = await supabase.auth.getSession();
@@ -48,16 +66,16 @@ export const getCurrentUser = async (): Promise<AuthUser | null> => {
   }
 
   const cached = loadCache();
-  const user = toAuthUser(session.user, cached?.displayName);
+  const partial = toPartialAuthUser(session.user, cached?.displayName);
+  const playerId = await getOrCreatePlayer(partial.id, partial.displayName);
+  const user: AuthUser = { ...partial, playerId };
 
-  // Keep cache in sync with latest session tokens
   saveCache(
     user,
     session.access_token,
     session.refresh_token ?? "",
     session.expires_at ?? 0,
   );
-
   return user;
 };
 
@@ -71,7 +89,9 @@ export const signIn = async (
     password,
   });
   if (error) throw new Error(error.message);
-  const user = toAuthUser(data.user);
+  const partial = toPartialAuthUser(data.user);
+  const playerId = await getOrCreatePlayer(partial.id, partial.displayName);
+  const user: AuthUser = { ...partial, playerId };
   saveCache(
     user,
     data.session.access_token,
@@ -94,7 +114,9 @@ export const signUp = async (
   });
   if (error) throw new Error(error.message);
   if (!data.user) throw new Error("Sign-up failed — please try again.");
-  const user = toAuthUser(data.user, displayName);
+  const partial = toPartialAuthUser(data.user, displayName);
+  const playerId = await getOrCreatePlayer(partial.id, partial.displayName);
+  const user: AuthUser = { ...partial, playerId };
   if (data.session) {
     saveCache(
       user,
@@ -113,7 +135,9 @@ export const playAsGuest = async (displayName: string): Promise<AuthUser> => {
   });
   if (error) throw new Error(error.message);
   if (!data.user) throw new Error("Guest sign-in failed.");
-  const user = toAuthUser(data.user, displayName);
+  const partial = toPartialAuthUser(data.user, displayName);
+  const playerId = await getOrCreatePlayer(partial.id, partial.displayName);
+  const user: AuthUser = { ...partial, playerId };
   if (data.session) {
     saveCache(
       user,
@@ -133,7 +157,10 @@ export const signOut = async () => {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const toAuthUser = (user: any, fallbackName?: string): AuthUser => {
+const toPartialAuthUser = (
+  user: any,
+  fallbackName?: string,
+): Omit<AuthUser, "playerId"> => {
   const meta = user.user_metadata ?? {};
   const displayName: string =
     meta.display_name ||
