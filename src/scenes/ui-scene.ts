@@ -1,6 +1,6 @@
 import { Container, Text, TextStyle } from "pixi.js";
 import { createChip } from "../entities/chip";
-import { createButton, setButtonEnabled } from "../utils/mock-graphics";
+import { createButton, setButtonEnabled } from "../utils/button";
 import { CHIP_VALUES, SCREEN_HEIGHT, SCREEN_WIDTH } from "../utils/constants";
 import type { GameState } from "../types";
 

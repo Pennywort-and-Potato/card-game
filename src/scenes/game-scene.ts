@@ -1,4 +1,4 @@
-import { Container, Text, TextStyle } from "pixi.js";
+import { Assets, Container, Graphics, Text, TextStyle } from "pixi.js";
 import type { GameResult, GameState, SceneParams } from "../types";
 import type { SceneContainer } from "../systems/scene-manager";
 import type { SceneManager } from "../systems/scene-manager";
@@ -11,7 +11,6 @@ import {
   flipCardAtIndex,
   getHandCards,
 } from "../entities/card-hand";
-import { createTableBackground } from "../utils/mock-graphics";
 import { createUIScene } from "./ui-scene";
 import {
   calculateHandValue,
@@ -41,7 +40,9 @@ export const createGameScene = (
   const playerName = (params.playerName as string) ?? "Anonymous";
 
   // ---- Table ----
-  root.addChild(createTableBackground());
+  const bg = new Graphics(Assets.get("assets/bg/bg.svg"));
+  bg.scale.set(SCREEN_WIDTH / 1920);
+  root.addChild(bg);
 
   // ---- Score labels ----
   const scoreLabelStyle = new TextStyle({

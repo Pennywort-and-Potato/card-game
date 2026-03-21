@@ -1,8 +1,7 @@
-import { Container, Graphics, Text, TextStyle } from "pixi.js";
+import { Assets, Container, Graphics, Text, TextStyle } from "pixi.js";
 import type { SceneContainer, SceneManager } from "../systems/scene-manager";
 import type { CardData, SceneParams } from "../types";
 import { createCard } from "../entities/card";
-import { createTableBackground } from "../utils/mock-graphics";
 import { CARD_HEIGHT, CARD_WIDTH, SCREEN_WIDTH } from "../utils/constants";
 import {
   canBeat,
@@ -374,7 +373,9 @@ export const createBigTwoMpScene = (
   }, 16);
 
   // ── PixiJS layers ────────────────────────────────────────────────────────
-  root.addChild(createTableBackground());
+  const bg = new Graphics(Assets.get("assets/bg/bg.svg"));
+  bg.scale.set(SCREEN_WIDTH / 1920);
+  root.addChild(bg);
 
   const slotsLayer = new Container();
   const comboLayer = new Container();

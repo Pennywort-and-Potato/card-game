@@ -1,39 +1,4 @@
 import { Container, Graphics, Text, TextStyle } from "pixi.js";
-import {
-  SCREEN_HEIGHT,
-  SCREEN_WIDTH,
-  TABLE_BORDER_COLOR,
-  TABLE_FELT_COLOR,
-  TABLE_INNER_COLOR,
-} from "./constants";
-
-export const createTableBackground = (): Graphics => {
-  const gfx = new Graphics();
-
-  // Main felt background
-  gfx.rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
-  gfx.fill(TABLE_FELT_COLOR);
-
-  // Inner oval area
-  gfx.ellipse(
-    SCREEN_WIDTH / 2,
-    SCREEN_HEIGHT / 2,
-    SCREEN_WIDTH * 0.44,
-    SCREEN_HEIGHT * 0.41,
-  );
-  gfx.fill(TABLE_INNER_COLOR);
-
-  // Gold border
-  gfx.ellipse(
-    SCREEN_WIDTH / 2,
-    SCREEN_HEIGHT / 2,
-    SCREEN_WIDTH * 0.445,
-    SCREEN_HEIGHT * 0.415,
-  );
-  gfx.stroke({ color: TABLE_BORDER_COLOR, width: 3, alpha: 0.7 });
-
-  return gfx;
-};
 
 export const createButton = (
   label: string,

@@ -90,6 +90,7 @@ const bootstrap = async () => {
     "back-yellow",
   ].map((b) => `assets/cards/${b}.png`);
   await Assets.load([...cardPaths, ...backPaths]);
+  await Assets.load({ src: "assets/bg/bg.svg", data: { parseAsGraphicsContext: true } });
 
   const manager = new SceneManager(viewport);
   manager

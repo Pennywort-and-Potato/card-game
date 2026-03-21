@@ -11,7 +11,12 @@
       "Bash(bunx tsc:*)",
       "Bash(grep -v \"^\\\\s*$\")",
       "Bash(find /d/sourcecode/card-game/supabase/migrations -type f -name *.sql)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(find /d/sourcecode/card-game/node_modules/pixi.js -type f -name *.d.ts)",
+      "Bash(find /d/sourcecode/card-game/node_modules/pixi.js -type f -name *svg* -o -name *asset*)",
+      "Bash(find /d/sourcecode/card-game/node_modules/pixi.js/lib -type f -name *Assets* -o -name *Texture*)",
+      "Bash(find /d/sourcecode/card-game/node_modules/pixi.js/lib -type f -name *SVG* -o -name *svg*)",
+      "WebFetch(domain:pixijs.download)"
     ]
   },
   "enabledMcpjsonServers": [

@@ -1,4 +1,4 @@
-import { Container, Text, TextStyle } from "pixi.js";
+import { Assets, Container, Graphics, Text, TextStyle } from "pixi.js";
 import type { SceneContainer } from "../systems/scene-manager";
 import type { SceneManager } from "../systems/scene-manager";
 import type {
@@ -15,7 +15,7 @@ import {
   flipCardAtIndex,
   getHandCards,
 } from "../entities/card-hand";
-import { createTableBackground, createButton } from "../utils/mock-graphics";
+import { createButton } from "../utils/button";
 import {
   createDeck,
   shuffleDeck,
@@ -54,7 +54,9 @@ export const createPokerScene = (
   const playerName = (params.playerName as string) ?? "Player";
 
   // ---- Table ----
-  root.addChild(createTableBackground());
+  const bg = new Graphics(Assets.get("assets/bg/bg.svg"));
+  bg.scale.set(SCREEN_WIDTH / 1920);
+  root.addChild(bg);
 
   // ---- Labels ----
   const areaStyle = new TextStyle({ fontSize: 11, fill: "#88cc88" });

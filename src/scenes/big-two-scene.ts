@@ -1,8 +1,7 @@
-import { Container, Graphics, Text, TextStyle } from "pixi.js";
+import { Assets, Container, Graphics, Text, TextStyle } from "pixi.js";
 import type { SceneContainer } from "../systems/scene-manager";
 import type { SceneManager } from "../systems/scene-manager";
 import { createCard } from "../entities/card";
-import { createTableBackground } from "../utils/mock-graphics";
 import { SCREEN_HEIGHT, SCREEN_WIDTH } from "../utils/constants";
 import type { CardData, SceneParams } from "../types";
 import {
@@ -76,10 +75,9 @@ export const createBigTwoScene = (
   }
 
   // ── PixiJS fixed UI ─────────────────────────────────────────────────────────
-  const bg = new Graphics();
-  bg.rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT).fill(0x0a1f10);
+  const bg = new Graphics(Assets.get("assets/bg/bg.svg"));
+  bg.scale.set(SCREEN_WIDTH / 1920);
   root.addChild(bg);
-  root.addChild(createTableBackground());
 
   const titleText = new Text({
     text: "BIG TWO (SOUTH)",
